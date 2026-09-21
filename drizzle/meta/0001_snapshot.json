@@ -1,0 +1,48 @@
+{
+  "id": "208782ff-521d-4abc-8380-662902ab548d",
+  "prevId": "c21631f8-7990-47bc-933d-aa4f8fa8040f",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "keepalive.ping": {
+      "name": "ping",
+      "schema": "keepalive",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ok": {
+          "name": "ok",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "app": "app",
+    "keepalive": "keepalive"
+  },
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
