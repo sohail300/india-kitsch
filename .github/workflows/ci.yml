@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run test
+
+      # No env vars are injected here: nothing in the build graph imports
+      # src/server/lib/env.ts yet (Phase 0). Once real routes wire it in
+      # (Phase 1+), this step needs dummy-but-valid values as repo/CI
+      # secrets — see docs/08-infrastructure-backups-ops.md §19.
+      - run: npm run build
