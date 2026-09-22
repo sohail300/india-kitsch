@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "india-kitsch-cron",
+  "main": "src/index.ts",
+  // Capped to what the locally installed workerd binary supports (`wrangler
+  // dev` runs against it directly); harmless to be a couple of days behind
+  // — bump anytime, it only gates opting into newer default behaviors.
+  "compatibility_date": "2026-09-21",
+
+  // Daily keep-alive only for now (Phase 0 scope — see docs/12-next-steps.md
+  // and docs/18). The 10-minute payment reconciler trigger gets added here
+  // once /api/cron/reconcile exists in Phase 4; until then this Worker does
+  // one job. Pick whatever time suits — nothing here is time-sensitive.
+  "triggers": {
+    "crons": ["0 0 * * *"]
+  },
+
+  // SUPABASE_URL / SUPABASE_ANON_KEY are set via `wrangler secret put` for
+  // the deployed Worker, and via .dev.vars (gitignored, see
+  // .dev.vars.example) for local `wrangler dev`. Not committed here even
+  // though the anon key is "public by design" (docs/08 §19) — same
+  // discipline as the Next.js app's own .env.local.
+  "observability": {
+    "enabled": true,
+  },
+}

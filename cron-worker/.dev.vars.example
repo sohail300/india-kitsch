@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local `wrangler dev` / `wrangler dev --test-scheduled`.
+# .dev.vars is gitignored. For the deployed Worker, set these with:
+#   npx wrangler secret put SUPABASE_URL
+#   npx wrangler secret put SUPABASE_ANON_KEY
+SUPABASE_URL="https://xxxx.supabase.co"
+SUPABASE_ANON_KEY=""
