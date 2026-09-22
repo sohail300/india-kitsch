@@ -70,7 +70,9 @@ async function main() {
     const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     console.log(`  ✓ ContentType=${head.ContentType} ContentLength=${head.ContentLength}`);
     if (head.ContentLength !== Buffer.byteLength(body)) {
-      throw new Error("Uploaded size doesn't match what was sent — investigate before trusting this path");
+      throw new Error(
+        "Uploaded size doesn't match what was sent — investigate before trusting this path",
+      );
     }
 
     console.log("\nAll Phase 0 R2 checks passed.");

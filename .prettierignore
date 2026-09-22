@@ -2,3 +2,5 @@
 node_modules/
 drizzle/
 coverage/
+cron-worker/.wrangler/
+cron-worker/node_modules/

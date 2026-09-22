@@ -36,7 +36,7 @@
   - All cron endpoints are idempotent and reject requests without the bearer secret.
 - **Connections:** the app uses the **transaction pooler** (`prepare: false`); migrations and dumps use the **session pooler** because CI runners are IPv4-only and Supabase direct connections are IPv6 _(verify)_.
 - **Razorpay activation (start early; KYC takes days):** business docs/GSTIN/bank account, live keys, webhook URL + events (`payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`), auto-capture on. Razorpay requires live pages: Terms, Privacy, **Refund/Cancellation**, **Shipping policy**, Contact.
-- **Region:** pick the Supabase region nearest India (it appears to offer Mumbai _(verify)_), and set the Vercel function region to match (Mumbai `bom1` if so).
+- **Region — decided: Mumbai.** The Supabase project is in the Mumbai region; the Vercel function region should be set to match (`bom1`).
 - **Plan gate:** before public launch, the owner confirms the Vercel plan decision (§0, §29 #1).
 
 ## 19. Environment variables & secrets strategy

@@ -68,5 +68,5 @@ Nothing decided yet on these; each carries the default I'll build against until 
 8. **Paid-order cancellation:** _admin-only (the customer contacts support)._
 9. **Invoices:** _printable HTML + confirmation email; no PDF generation._
 10. **Existing content:** FAQ questions, About-us text, policy drafts (I can draft templates; legal review is yours).
-11. **Supabase region** (nearest to India available, apparently Mumbai) and matching Vercel function region. Technical — resolved by testing in Phase 0, not an owner decision. _Pick in Phase 0._
-12. **Data API decision:** private-schema lockdown with REST keep-alive (default), or disable the Data API if Phase 0 proves SQL activity prevents pausing. Same — resolved by what Phase 0 testing shows.
+11. **Supabase region — resolved: Mumbai.** Set the Vercel function region to match (`bom1`) — not yet confirmed as actually configured in the Vercel project (defaults may differ from this).
+12. **Data API decision — resolved.** Went with the default (private `app` schema locked down, only `keepalive` exposed, REST keep-alive ping) and confirmed it works end-to-end: anon key reads `keepalive.ping`, cannot reach `app`. No need to explore disabling the Data API entirely.

@@ -20,7 +20,7 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 
 1. Move development to Ubuntu (native or WSL2, repo inside the Linux filesystem, not `/mnt/*`); Node 22 LTS, Docker, GitHub CLI.
 2. Install dependencies (Drizzle, Zod, Better Auth, etc.); add `env.ts`, logger, `money.ts`; CI workflow; ESLint/Prettier.
-3. Deploy hello-world to Vercel Hobby, region matched to the Supabase region (Mumbai, if available — §29 #15).
+3. Deploy hello-world to Vercel Hobby, region matched to the Supabase region (Mumbai — §29 #11; confirm the Vercel project's function region is actually set to `bom1`, not left on a default).
 4. Supabase: create the private `app` schema and the one-row `keepalive` schema, enable RLS deny-all on `app`, confirm the anon key cannot read any `app` table while the `keepalive` REST ping succeeds (§4, §14).
 5. Drizzle + Supabase transaction pooler: run a real `db.transaction` with `prepare: false`; run migrations and `pg_dump` from CI through the session pooler (confirms IPv4 access).
 6. R2: browser → presigned PUT upload, then the commit/verify step (§12).

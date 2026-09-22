@@ -12,7 +12,7 @@
   // once /api/cron/reconcile exists in Phase 4; until then this Worker does
   // one job. Pick whatever time suits — nothing here is time-sensitive.
   "triggers": {
-    "crons": ["0 0 * * *"]
+    "crons": ["0 0 * * *"],
   },
 
   // SUPABASE_URL / SUPABASE_ANON_KEY are set via `wrangler secret put` for

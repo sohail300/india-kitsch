@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "drizzle/**",
+    // Its own separate project (own tsconfig, own package.json, own
+    // Workers-specific globals) — not part of the Next.js app.
+    "cron-worker/**",
   ]),
 ]);
 
