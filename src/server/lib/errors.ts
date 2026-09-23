@@ -26,3 +26,17 @@ export class OutOfStockError extends AppError {
     this.name = "OutOfStockError";
   }
 }
+
+/**
+ * Thrown only by the atomic conditional-UPDATE redemption (coupons/service.ts)
+ * when a concurrent race exhausts `maxUses` between the caller's earlier
+ * validate.ts preview and the actual redemption — validate.ts itself
+ * returns a structured `{ ok: false, code }` result, it never throws.
+ */
+export class CouponExhaustedError extends AppError {
+  readonly code = "COUPON_EXHAUSTED";
+  constructor(readonly couponCode: string) {
+    super(`Coupon ${couponCode} has reached its usage limit`);
+    this.name = "CouponExhaustedError";
+  }
+}
