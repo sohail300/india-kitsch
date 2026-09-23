@@ -19,7 +19,17 @@ if (!databaseUrl) {
 }
 
 export default defineConfig({
-  schema: "./src/server/db/schema/index.ts",
+  // Explicit list, not a glob — schema/index.ts re-exports all of these
+  // for the app's own barrel import, and scanning it too would have
+  // drizzle-kit discover every table twice.
+  schema: [
+    "./src/server/db/schema/_shared.ts",
+    "./src/server/db/schema/auth.ts",
+    "./src/server/db/schema/catalog.ts",
+    "./src/server/db/schema/commerce.ts",
+    "./src/server/db/schema/inventory.ts",
+    "./src/server/db/schema/misc.ts",
+  ],
   out: "./drizzle",
   dialect: "postgresql",
   // Only these two schemas are ours to manage — see docs/03 §4 and docs/04 §14.

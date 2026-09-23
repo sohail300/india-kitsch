@@ -10,6 +10,13 @@ import { z } from "zod";
  * backup-related `B2_*`/`BACKUP_AGE_PUBLIC_KEY`/`SENTRY_AUTH_TOKEN` vars
  * are deliberately NOT here — they belong to CI or the Cloudflare cron
  * Worker, never to this app. See docs/08-infrastructure-backups-ops.md §19.
+ *
+ * A handful of fields below are `.optional()` even though docs/08 §19
+ * lists them as required-in-production, because the integration that
+ * needs them hasn't been built yet (this file requires only what the
+ * *currently built* app actually needs, matching docs/10's backend-first
+ * phase order). Each one's comment says which phase tightens it back to
+ * required — do that as part of building that phase, not before.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -20,22 +27,25 @@ const envSchema = z.object({
   // Auth (Better Auth)
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url(),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  // Google sign-in is configured only if both are present (see auth.ts) —
+  // required once Phase 3 (auth backend) actually wires up Google login.
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
 
-  // Payments (Razorpay)
-  RAZORPAY_KEY_SECRET: z.string().min(1),
-  RAZORPAY_WEBHOOK_SECRET: z.string().min(1),
-  NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1),
+  // Payments (Razorpay) — required once Phase 6 builds checkout/payments.
+  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1).optional(),
 
   // Site / public config
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_IMAGE_BASE_URL: z.url(),
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),
-  TURNSTILE_SECRET: z.string().min(1),
+  // Turnstile — required once Phase 3 wires up register/contact-form rate limiting.
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
+  TURNSTILE_SECRET: z.string().min(1).optional(),
 
-  // Email (Resend)
-  RESEND_API_KEY: z.string().min(1),
+  // Email (Resend) — required once Phase 8 (email/notifications backend) sends anything.
+  RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.email(),
   CONTACT_INBOX_EMAIL: z.email(),
 
@@ -54,8 +64,22 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/**
+ * An unset env var and one left as `KEY=""` in `.env.local`/`.env.example`
+ * should both count as "not configured yet" — without this, `.optional()`
+ * only excuses a truly missing key, and an empty string still fails a
+ * `.min(1)` check with a confusing error.
+ */
+function stripEmptyStrings(source: NodeJS.ProcessEnv): Record<string, string | undefined> {
+  const result: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(source)) {
+    result[key] = value === "" ? undefined : value;
+  }
+  return result;
+}
+
 function loadEnv(): Env {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse(stripEmptyStrings(process.env));
 
   if (!parsed.success) {
     const fieldErrors = z.flattenError(parsed.error).fieldErrors;

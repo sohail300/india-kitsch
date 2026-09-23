@@ -50,6 +50,27 @@ describe("env", () => {
     await expect(import("@/server/lib/env")).rejects.toThrow(/Invalid environment variables/);
   });
 
+  it("treats an optional field left as an empty string the same as absent (not an error)", async () => {
+    // Regression test: .env.local/.env.example leave not-yet-built
+    // integrations as `KEY=""`, not a missing key. `.optional()` alone
+    // only excuses `undefined` — an empty string still fails `.min(1)`
+    // unless it's normalized first. Covers Google/Razorpay/Turnstile/Resend.
+    stubValidEnv({
+      GOOGLE_CLIENT_ID: "",
+      GOOGLE_CLIENT_SECRET: "",
+      RAZORPAY_KEY_SECRET: "",
+      RAZORPAY_WEBHOOK_SECRET: "",
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: "",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "",
+      TURNSTILE_SECRET: "",
+      RESEND_API_KEY: "",
+    });
+    const { env } = await import("@/server/lib/env");
+    expect(env.GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(env.RAZORPAY_KEY_SECRET).toBeUndefined();
+    expect(env.RESEND_API_KEY).toBeUndefined();
+  });
+
   it("rejects an invalid URL", async () => {
     stubValidEnv({ NEXT_PUBLIC_SITE_URL: "not-a-url" });
     await expect(import("@/server/lib/env")).rejects.toThrow();
