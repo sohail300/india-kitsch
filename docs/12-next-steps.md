@@ -6,15 +6,15 @@
 
 The architecture and implementation plan is finished across `docs/01`–`docs/11` (start at [README.md](./README.md)). Final stack: **Next.js 16 on Vercel Hobby + Supabase Postgres (Free, used purely as plain Postgres) + Cloudflare R2/DNS/cron Worker + Drizzle + Better Auth + Razorpay**, Ubuntu as the dev OS, a 5-minute payment hold, hosting cost ₹0. No application code exists yet. This file is the "what happens next" checklist; the design itself lives in the other files.
 
-## One doc gap to close before Phase 4 code
+## One doc gap to close before Phase 6 code
 
-`docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment** (a customer who pays after their 5-minute hold expired) inside the **10-minute reconciler** (step 7). It should also run directly in the **webhook handler** (step 5), so a late payer isn't waiting up to 10 minutes for their order to confirm or their refund to start — the reconciler then becomes the backstop for a lost webhook, not the primary path. Update §9/§10 with this before implementing checkout in Phase 4.
+`docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment** (a customer who pays after their 5-minute hold expired) inside the **10-minute reconciler** (step 7). It should also run directly in the **webhook handler** (step 5), so a late payer isn't waiting up to 10 minutes for their order to confirm or their refund to start — the reconciler then becomes the backstop for a lost webhook, not the primary path. Update §9/§10 with this before implementing checkout in Phase 6 (checkout & payments backend).
 
 ## Owner/user prerequisites (long lead time — start whenever convenient, no code blocked on these)
 
 - Owner-created, owner-owned accounts with 2FA: GitHub, Vercel, Supabase (2 projects: production, staging), Cloudflare (DNS + R2), Razorpay (**start KYC now** — longest lead time of anything here), Resend, Sentry, Backblaze B2. Developer gets **invited access** (team member / scoped API token) on each, never a shared login — see `docs/11-risks-scope-decisions.md` §27/§29 #2.
 - The two launch-blocking TBDs in §29: **#6 shipping** (fee, free-shipping threshold, delivery ETA, coverage) and **#7 return/refund policy** (window, who pays return shipping, refund vs exchange-only) — Razorpay won't activate live payments without live Shipping and Refund/Cancellation pages built from these.
-- Brand assets (§29 #4) — needed before Phase 1 UI work starts.
+- Brand assets (§29 #4) — needed before Phase 10 (public storefront UI) starts, not before the backend phases.
 
 ## Phase 0: foundations and spikes (~3 days; exit criteria in `docs/10-roadmap.md`)
 
@@ -31,7 +31,7 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 
 ## Then
 
-Phases 1–8 as written in `docs/10-roadmap.md` (catalog → auth → admin catalog → checkout/payments → admin ops → content/polish → hardening/launch → hypercare), roughly 7–9 weeks total.
+Phases 1–14 as written in `docs/10-roadmap.md`: **all backend first** (schema → backups/monitoring → auth → catalog/inventory → cart/pricing/coupons → checkout/payments → admin logic/media → email → hardening), **then all frontend** (public storefront UI → admin panel UI → content/polish), **then launch prep → launch**. Roughly 7–9 weeks total — same scope as before, resequenced per the owner's call to finish the backend before any UI work starts.
 
 ## Verification
 
