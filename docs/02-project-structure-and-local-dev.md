@@ -33,7 +33,7 @@ india-kitsch/
 │  ├─ proxy.ts                          # optional, optimistic redirects only (never the security boundary)
 │  ├─ server/                           # `import "server-only"`; never bundled client-side
 │  │  ├─ db/{client.ts, schema/*.ts, seed.ts}
-│  │  ├─ auth/{auth.ts, session.ts}     # getSession, requireUser, requireAdmin (the DAL)
+│  │  ├─ auth/{auth.ts, config.ts, session.ts}  # config.ts is the unguarded, script-reusable Better Auth setup; session.ts is the DAL (getSession, requireUser, requireAdmin)
 │  │  ├─ modules/
 │  │  │  ├─ catalog/     {queries.ts, service.ts, schemas.ts}
 │  │  │  ├─ cart/        {quote.ts}
@@ -44,13 +44,13 @@ india-kitsch/
 │  │  │  ├─ payments/    {razorpay.ts, verify.ts, webhook.ts, reconcile.ts}
 │  │  │  ├─ media/       {r2.ts, uploads.ts}
 │  │  │  ├─ customers/   notifications/   settings/
-│  │  ├─ lib/{money.ts, tax.ts, ids.ts, errors.ts, logger.ts, rate-limit.ts, env.ts}
+│  │  ├─ lib/{money.ts, tax.ts, ids.ts, errors.ts, logger.ts, rate-limit.ts, env.ts, email.ts}  # email.ts: swappable EmailSender interface, console driver until Phase 8's Resend driver
 │  ├─ components/{ui (shadcn), store, admin, shared}
 │  ├─ lib/                              # client-safe helpers only
 │  └─ content/{faq.ts, size-guides.ts, policies/*.mdx}
 ├─ drizzle/                             # generated SQL migrations (committed)
 ├─ cron-worker/                         # tiny Cloudflare Worker: scheduled() → POST /api/cron/*
-├─ tests/{unit, integration, e2e}
+├─ tests/{unit, integration, e2e, setup}         # setup/: Vitest bootstrap (server-only stub, .env.local loader)
 ├─ scripts/{create-admin.ts, backup-db.ts, prune-backups.ts, lib/backup-retention.ts}
 ├─ docs/                                # this documentation set + runbooks/ (e.g. runbooks/restore.md)
 ├─ compose.yaml                         # local Postgres 16

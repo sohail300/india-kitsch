@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { text, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
+import { text, bigint, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
 import { appSchema } from "./_shared";
 
 export const user = appSchema.table("user", {
@@ -96,6 +96,13 @@ export const twoFactor = appSchema.table(
     index("twoFactor_userId_idx").on(table.userId),
   ],
 );
+
+export const rateLimit = appSchema.table("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
