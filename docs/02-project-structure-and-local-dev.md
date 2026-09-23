@@ -32,19 +32,20 @@ india-kitsch/
 │  │  ├─ sitemap.ts  robots.ts  error.tsx  not-found.tsx  layout.tsx  globals.css
 │  ├─ proxy.ts                          # optional, optimistic redirects only (never the security boundary)
 │  ├─ server/                           # `import "server-only"`; never bundled client-side
-│  │  ├─ db/{client.ts, schema/*.ts, seed.ts}
+│  │  ├─ db/{client.ts, schema/*.ts (incl. relations.ts — cross-domain relations that would otherwise need a circular import between e.g. auth.ts and commerce.ts), seed.ts}
 │  │  ├─ auth/{auth.ts, config.ts, session.ts}  # config.ts is the unguarded, script-reusable Better Auth setup; session.ts is the DAL (getSession, requireUser, requireAdmin)
 │  │  ├─ modules/
-│  │  │  ├─ catalog/     {queries.ts, service.ts, schemas.ts, cache-tags.ts}
+│  │  │  ├─ catalog/     {queries.ts, service.ts, schemas.ts, cache-tags.ts, admin.ts, admin-schemas.ts}  # admin.ts: category/product/variant-matrix/image mutations
 │  │  │  ├─ cart/        {quote.ts}
 │  │  │  ├─ checkout/    {createOrder.ts, schemas.ts}          # pricing.ts moved to lib/ (below) — cart's quote also needs it, and it's pure/DB-free
-│  │  │  ├─ orders/      {service.ts, stateMachine.ts, queries.ts}
-│  │  │  ├─ inventory/   {service.ts, queries.ts}
-│  │  │  ├─ coupons/     {service.ts, validate.ts, discount.ts, schemas.ts}  # discount.ts: pure amount math; validate.ts: DB eligibility preview; service.ts: atomic conditional-UPDATE redemption
-│  │  │  ├─ payments/    {razorpay.ts, verify.ts, webhook.ts, reconcile.ts}
+│  │  │  ├─ orders/      {service.ts, stateMachine.ts, queries.ts, admin.ts}  # admin.ts: processing/shipped/delivered, notes, refunds, admin cancel
+│  │  │  ├─ inventory/   {service.ts, queries.ts, admin.ts}    # admin.ts: adjustStock (the inline stock-edit-with-reason action)
+│  │  │  ├─ coupons/     {service.ts, validate.ts, discount.ts, schemas.ts, admin.ts, admin-schemas.ts}  # discount.ts: pure amount math; validate.ts: DB eligibility preview; service.ts: atomic conditional-UPDATE redemption; admin.ts: CRUD
+│  │  │  ├─ payments/    {razorpay.ts, verify.ts, webhook.ts, reconcile.ts, settle.ts}  # settle.ts: the captured-payment decision shared by webhook.ts and reconcile.ts
 │  │  │  ├─ media/       {r2.ts, uploads.ts}
-│  │  │  ├─ customers/   notifications/
-│  │  │  ├─ settings/    {queries.ts, schemas.ts}              # store_settings typed accessors (shipping fee/threshold, ...)
+│  │  │  ├─ customers/   {queries.ts, service.ts, schemas.ts}  notifications/
+│  │  │  ├─ settings/    {queries.ts, schemas.ts, admin.ts}    # store_settings typed accessors (shipping fee/threshold, GSTIN/seller state/contact) + the admin upsert
+│  │  │  ├─ admin/       {audit.ts, types.ts}                  # writeAuditLog (one entry per admin mutation, docs/07 §13) + the shared AdminMutationResult<T> shape
 │  │  ├─ lib/{money.ts, pricing.ts, tax.ts, ids.ts, errors.ts, logger.ts, rate-limit.ts, env.ts, email.ts}  # pricing.ts: the one place order totals are computed (docs/06 §9); email.ts: swappable EmailSender interface, console driver until Phase 8's Resend driver
 │  ├─ components/{ui (shadcn), store, admin, shared}
 │  ├─ lib/                              # client-safe helpers only

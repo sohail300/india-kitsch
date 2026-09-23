@@ -3,11 +3,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import type { DbOrTx } from "@/server/db/client";
 import { storeSettings } from "@/server/db/schema";
-import type { ShippingSettingsValue } from "./schemas";
+import type { ShippingSettingsValue, StoreInfoValue } from "./schemas";
 import {
   PLACEHOLDER_SHIPPING_SETTINGS,
+  PLACEHOLDER_STORE_INFO,
   SHIPPING_SETTINGS_KEY,
+  STORE_INFO_SETTINGS_KEY,
   shippingSettingsSchema,
+  storeInfoSchema,
 } from "./schemas";
 
 /**
@@ -24,4 +27,14 @@ export async function getShippingSettings(dbHandle: DbOrTx = db): Promise<Shippi
 
   const parsed = shippingSettingsSchema.safeParse(row.value);
   return parsed.success ? parsed.data : PLACEHOLDER_SHIPPING_SETTINGS;
+}
+
+export async function getStoreInfo(dbHandle: DbOrTx = db): Promise<StoreInfoValue> {
+  const row = await dbHandle.query.storeSettings.findFirst({
+    where: eq(storeSettings.key, STORE_INFO_SETTINGS_KEY),
+  });
+  if (!row) return PLACEHOLDER_STORE_INFO;
+
+  const parsed = storeInfoSchema.safeParse(row.value);
+  return parsed.success ? parsed.data : PLACEHOLDER_STORE_INFO;
 }

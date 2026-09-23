@@ -174,3 +174,33 @@ export async function sellReservedStock(
     });
   }
 }
+
+/**
+ * The inverse of `sellReservedStock` — a paid order gets admin-cancelled
+ * (docs/06 §10: "paid/processing -> cancelled | admin | refund required,
+ * restock"). Only `onHand` moves; the unit was already fully sold
+ * (`reserved` was already decremented at sale time), so there's nothing
+ * held to release, just stock coming back.
+ */
+export async function returnSoldStock(
+  tx: Tx,
+  lines: StockLine[],
+  context: MovementContext = {},
+): Promise<void> {
+  for (const line of sortedByVariantId(lines)) {
+    assertPositiveQuantity(line, "returnSoldStock");
+
+    await tx
+      .update(inventory)
+      .set({ onHand: sql`${inventory.onHand} + ${line.quantity}`, updatedAt: new Date() })
+      .where(eq(inventory.variantId, line.variantId));
+
+    await tx.insert(stockMovements).values({
+      variantId: line.variantId,
+      delta: line.quantity,
+      reason: "return",
+      orderId: context.orderId,
+      note: context.note,
+    });
+  }
+}

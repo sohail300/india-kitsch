@@ -20,3 +20,22 @@ export const PLACEHOLDER_SHIPPING_SETTINGS: ShippingSettingsValue = {
   feePaise: 9900,
   freeThresholdPaise: 299900,
 };
+
+export const storeInfoSchema = z.object({
+  // Intentionally optional, not a placeholder to replace — the business is
+  // confirmed not GST-registered (docs/11 §29 #3: "No GSTIN"). Leave blank
+  // rather than fabricate one; tax.ts and invoices must handle that blank.
+  gstin: z.string().trim().max(20).optional(),
+  sellerState: z.string().trim().min(1).max(100),
+  contactEmail: z.email(),
+  contactPhone: z.string().trim().min(1).max(20).optional(),
+});
+export type StoreInfoValue = z.infer<typeof storeInfoSchema>;
+
+export const STORE_INFO_SETTINGS_KEY = "storeInfo";
+
+/** PLACEHOLDER — real seller state/contact details not yet provided by the owner. */
+export const PLACEHOLDER_STORE_INFO: StoreInfoValue = {
+  sellerState: "Maharashtra",
+  contactEmail: "hello@example.com",
+};
