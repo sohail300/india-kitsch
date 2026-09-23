@@ -2,5 +2,9 @@
 # .dev.vars is gitignored. For the deployed Worker, set these with:
 #   npx wrangler secret put SUPABASE_URL
 #   npx wrangler secret put SUPABASE_ANON_KEY
+#   npx wrangler secret put CRON_SECRET
 SUPABASE_URL="https://xxxx.supabase.co"
 SUPABASE_ANON_KEY=""
+# Same value as the Next app's CRON_SECRET (Vercel env) — authenticates the
+# 10-minute reconcile call (docs/06 §9 step 7).
+CRON_SECRET=""

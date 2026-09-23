@@ -6,9 +6,9 @@
 
 The architecture and implementation plan is finished across `docs/01`–`docs/11` (start at [README.md](./README.md)). Final stack: **Next.js 16 on Vercel Hobby + Supabase Postgres (Free, used purely as plain Postgres) + Cloudflare R2/DNS/cron Worker + Drizzle + Better Auth + Razorpay**, Ubuntu as the dev OS, a 5-minute payment hold, hosting cost ₹0. No application code exists yet. This file is the "what happens next" checklist; the design itself lives in the other files.
 
-## One doc gap to close before Phase 6 code
+## Doc gap closed in Phase 6
 
-`docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment** (a customer who pays after their 5-minute hold expired) inside the **10-minute reconciler** (step 7). It should also run directly in the **webhook handler** (step 5), so a late payer isn't waiting up to 10 minutes for their order to confirm or their refund to start — the reconciler then becomes the backstop for a lost webhook, not the primary path. Update §9/§10 with this before implementing checkout in Phase 6 (checkout & payments backend).
+~~`docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment**... inside the **10-minute reconciler**...~~ Resolved: `payments/settle.ts`'s `settleCapturedPayment` is shared by the webhook handler and the reconciler, so a late payer is reinstated or refunded the moment the webhook arrives — the reconciler is now purely the backstop for a lost webhook, not the primary path. See docs/06's "Implementation notes (Phase 6)" section and `tests/integration/payments.test.ts`'s "reinstates/auto-refunds a late payment directly" cases.
 
 ## GitHub Actions secrets needed (blocks the backup pipeline right now)
 

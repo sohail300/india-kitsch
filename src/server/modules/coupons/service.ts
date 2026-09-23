@@ -44,3 +44,25 @@ export async function redeemCoupon(tx: Tx, input: RedeemCouponInput): Promise<vo
     amountPaise: input.amountPaise,
   });
 }
+
+/**
+ * Undoes `redeemCoupon` when its order is cancelled (docs/06 §10: "coupon
+ * usage returned"). Deletes the `coupon_redemptions` row too, not just the
+ * counter — otherwise a per-user-limited coupon would stay blocked for a
+ * customer whose order never actually went through. A no-op (not an error)
+ * if no redemption exists for this order — cancelling a coupon-less order,
+ * or double-cancelling, must stay safe to call.
+ */
+export async function releaseCoupon(tx: Tx, orderId: string): Promise<void> {
+  const [redemption] = await tx
+    .delete(couponRedemptions)
+    .where(eq(couponRedemptions.orderId, orderId))
+    .returning({ couponId: couponRedemptions.couponId });
+
+  if (!redemption) return;
+
+  await tx
+    .update(coupons)
+    .set({ usedCount: sql`greatest(${coupons.usedCount} - 1, 0)`, updatedAt: new Date() })
+    .where(eq(coupons.id, redemption.couponId));
+}

@@ -37,7 +37,7 @@ india-kitsch/
 │  │  ├─ modules/
 │  │  │  ├─ catalog/     {queries.ts, service.ts, schemas.ts, cache-tags.ts}
 │  │  │  ├─ cart/        {quote.ts}
-│  │  │  ├─ checkout/    {createOrder.ts}                     # pricing.ts moved to lib/ (below) — cart's quote also needs it, and it's pure/DB-free
+│  │  │  ├─ checkout/    {createOrder.ts, schemas.ts}          # pricing.ts moved to lib/ (below) — cart's quote also needs it, and it's pure/DB-free
 │  │  │  ├─ orders/      {service.ts, stateMachine.ts, queries.ts}
 │  │  │  ├─ inventory/   {service.ts, queries.ts}
 │  │  │  ├─ coupons/     {service.ts, validate.ts, discount.ts, schemas.ts}  # discount.ts: pure amount math; validate.ts: DB eligibility preview; service.ts: atomic conditional-UPDATE redemption

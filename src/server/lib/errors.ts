@@ -40,3 +40,22 @@ export class CouponExhaustedError extends AppError {
     this.name = "CouponExhaustedError";
   }
 }
+
+/**
+ * Thrown by orders/stateMachine.ts's `transition()` when the requested
+ * (from, to) pair isn't a legal edge in docs/06 §10's table — a programmer
+ * error (calling code attempted something the state machine never allows),
+ * not a concurrency race. A race (someone else changed the order first) is
+ * a *legal* transition that just lost an optimistic-concurrency check —
+ * `transition()` returns `null` for that, it doesn't throw.
+ */
+export class InvalidOrderTransitionError extends AppError {
+  readonly code = "INVALID_ORDER_TRANSITION";
+  constructor(
+    readonly from: string,
+    readonly to: string,
+  ) {
+    super(`Illegal order status transition: ${from} -> ${to}`);
+    this.name = "InvalidOrderTransitionError";
+  }
+}

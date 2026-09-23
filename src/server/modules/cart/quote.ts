@@ -30,6 +30,7 @@ export interface QuotedLine {
   productId: string;
   productSlug: string;
   productName: string;
+  sku: string;
   size: string;
   color: string;
   imageKey: string | null;
@@ -170,6 +171,7 @@ export async function quoteCart(
       productId: variant.product.id,
       productSlug: variant.product.slug,
       productName: variant.product.name,
+      sku: variant.sku,
       size: variant.size,
       color: variant.color,
       imageKey: resolveImageKey(variant),

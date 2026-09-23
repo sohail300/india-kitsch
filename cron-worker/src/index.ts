@@ -18,10 +18,19 @@
  * rolling retention policy — see scripts/lib/backup-retention.ts and
  * docs/08 §16 — so this Worker never needs to know about that.
  *
+ * Two independent triggers (wrangler.jsonc's `triggers.crons`), told apart
+ * in `scheduled()` by `event.cron`:
+ *  - daily (`0 0 * * *`): keep-alive + backup freshness (below);
+ *  - every 10 minutes (`*​/10 * * * *`, Phase 6): POSTs
+ *    `${APP_URL}/api/cron/reconcile` with `Authorization: Bearer
+ *    CRON_SECRET` — lost-webhook recovery and late-payment detection
+ *    (docs/06 §9 step 7). The reconcile logic itself lives entirely in the
+ *    Next app (`src/server/modules/payments/reconcile.ts`); this Worker
+ *    only exists to invoke it on a schedule Vercel Hobby's own cron (daily
+ *    at best) can't provide.
+ *
  * Deliberately NOT included yet (each is a separate later addition, not
  * a rewrite of this file):
- *  - The 10-minute payment reconciler (`POST /api/cron/reconcile`) —
- *    doesn't exist until Phase 6 builds checkout/payments.
  *  - Emailing the owner on failure (docs §18) — logged to Workers Logs
  *    for now; wire up Resend once the app has a shared email sender
  *    (Phase 8), then replace the `console.error`s below with real emails.
@@ -34,6 +43,8 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   BACKUPS: R2Bucket;
+  APP_URL: string;
+  CRON_SECRET: string;
 }
 
 async function pingSupabaseKeepAlive(env: Env): Promise<void> {
@@ -89,9 +100,31 @@ async function runDailyChecks(env: Env): Promise<void> {
   }
 }
 
+/** POSTs the reconciler (docs/06 §9 step 7) — the actual logic all lives in the Next app; this is purely "wake it up on a schedule Vercel can't." */
+async function runReconcile(env: Env): Promise<void> {
+  const res = await fetch(`${env.APP_URL}/api/cron/reconcile`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Reconcile call failed: ${res.status} ${body}`);
+  }
+
+  const result = await res.json();
+  console.log("Reconcile OK:", JSON.stringify(result));
+}
+
+const RECONCILE_CRON = "*/10 * * * *";
+
 export default {
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runDailyChecks(env));
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    if (event.cron === RECONCILE_CRON) {
+      ctx.waitUntil(runReconcile(env));
+    } else {
+      ctx.waitUntil(runDailyChecks(env));
+    }
   },
 
   // Manual trigger for testing — `wrangler dev` and hit this route, or

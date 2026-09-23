@@ -128,3 +128,49 @@ export async function releaseStock(
     });
   }
 }
+
+/**
+ * Converts a reservation into a completed sale when payment succeeds
+ * (docs/06 §9 step 6, inside `markOrderPaid`): both `onHand` and `reserved`
+ * drop by the same amount, since the unit is now actually gone, not just
+ * held. The `CHECK (reserved <= on_hand)` invariant holds throughout — this
+ * is the one place both columns move together.
+ */
+export async function sellReservedStock(
+  tx: Tx,
+  lines: StockLine[],
+  context: MovementContext = {},
+): Promise<void> {
+  for (const line of sortedByVariantId(lines)) {
+    assertPositiveQuantity(line, "sellReservedStock");
+
+    const updated = await tx
+      .update(inventory)
+      .set({
+        onHand: sql`${inventory.onHand} - ${line.quantity}`,
+        reserved: sql`${inventory.reserved} - ${line.quantity}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(inventory.variantId, line.variantId),
+          sql`${inventory.reserved} >= ${line.quantity}`,
+        ),
+      )
+      .returning({ variantId: inventory.variantId });
+
+    if (updated.length === 0) {
+      throw new Error(
+        `sellReservedStock: cannot sell ${line.quantity} for variant ${line.variantId} — reserved is lower than that`,
+      );
+    }
+
+    await tx.insert(stockMovements).values({
+      variantId: line.variantId,
+      delta: -line.quantity,
+      reason: "sale",
+      orderId: context.orderId,
+      note: context.note,
+    });
+  }
+}

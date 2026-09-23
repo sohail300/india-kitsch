@@ -26,6 +26,8 @@ env:
   R2_SECRET_ACCESS_KEY: ci-placeholder
   R2_BUCKET: ci-placeholder
   CRON_SECRET: ci-only-placeholder-secret-not-used-anywhere-real
+  RAZORPAY_KEY_SECRET: ci-placeholder
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: ci-placeholder
 
 jobs:
   ci:

@@ -32,10 +32,15 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
 
-  // Payments (Razorpay) — required once Phase 6 builds checkout/payments.
-  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  // Payments (Razorpay) — Phase 6 built checkout/payments, so the order-creation
+  // credentials are required now. RAZORPAY_WEBHOOK_SECRET stays optional a
+  // little longer: no Razorpay webhook is configured yet (owner hasn't set
+  // one up), so there's no value to put here yet — tighten it the moment
+  // one exists, since the webhook route is the payment source of truth
+  // (docs/06 §9 step 5) and must never run unverified in production.
+  RAZORPAY_KEY_SECRET: z.string().min(1),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
-  NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1),
 
   // Site / public config
   NEXT_PUBLIC_SITE_URL: z.url(),

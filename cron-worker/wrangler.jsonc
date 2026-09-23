@@ -7,18 +7,28 @@
   // — bump anytime, it only gates opting into newer default behaviors.
   "compatibility_date": "2026-09-21",
 
-  // Daily keep-alive only for now (Phase 0 scope — see docs/12-next-steps.md
-  // and docs/18). The 10-minute payment reconciler trigger gets added here
-  // once /api/cron/reconcile exists in Phase 4; until then this Worker does
-  // one job. Pick whatever time suits — nothing here is time-sensitive.
+  // Daily keep-alive/backup-freshness, plus the 10-minute payment
+  // reconciler added in Phase 6 (docs/06 §9 step 7, docs/08 §18) — the
+  // `scheduled()` handler in src/index.ts tells the two apart via
+  // `event.cron`. Pick whatever time suits for the daily one; nothing
+  // there is time-sensitive.
   "triggers": {
-    "crons": ["0 0 * * *"],
+    "crons": ["0 0 * * *", "*/10 * * * *"],
   },
 
-  // SUPABASE_URL / SUPABASE_ANON_KEY are set via `wrangler secret put` for
-  // the deployed Worker, and via .dev.vars (gitignored, see
-  // .dev.vars.example) for local `wrangler dev`. Not committed here even
-  // though the anon key is "public by design" (docs/08 §19) — same
+  // The deployed Next app's base URL — not a secret, just where the
+  // reconciler POSTs. PLACEHOLDER: no production domain is decided yet
+  // (docs/01 §1 etc. still say `<domain>` throughout) — this must be set
+  // to the real Vercel/custom domain before the 10-minute trigger can
+  // actually reach anything. Override locally via .dev.vars if it differs.
+  "vars": {
+    "APP_URL": "https://REPLACE_WITH_REAL_DOMAIN.example",
+  },
+
+  // SUPABASE_URL / SUPABASE_ANON_KEY / CRON_SECRET are set via `wrangler
+  // secret put` for the deployed Worker, and via .dev.vars (gitignored,
+  // see .dev.vars.example) for local `wrangler dev`. Not committed here
+  // even though the anon key is "public by design" (docs/08 §19) — same
   // discipline as the Next.js app's own .env.local.
   "observability": {
     "enabled": true,
