@@ -1,0 +1,31 @@
+name: Prune old backups
+
+on:
+  schedule:
+    # Weekly — deliberately not the same cadence as the backup job itself
+    # (docs/08 §16). A bug here can never take the backup job down with
+    # it, and the retention tiers operate at day granularity, so running
+    # more often than this buys nothing.
+    - cron: "0 21 * * 0" # Sunday ~2:30am IST
+  workflow_dispatch: {} # manual "Run workflow" button, for testing
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prune backups (rolling retention)
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: npx tsx scripts/prune-backups.ts --execute

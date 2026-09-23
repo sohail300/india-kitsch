@@ -16,7 +16,7 @@
 
 1. **Vercel's terms restrict Hobby to non-commercial use.** Their fair-use page defines commercial use as any deployment tied to financial gain of anyone involved, including a paid consultant, and any site that requests or processes payments. Vercel may pause a deployment or account that breaks this; I can't say how often they enforce it. The business owner should be told this in writing (§29 #1). Mitigation: the app is a standard Next.js + Postgres app, so moving to Vercel Pro ($20/mo) is a plan change with no code change, and moving to another Node host (Docker on Fly/Railway/a VPS) is a day of work. Because DNS is in Cloudflare, cutover is a DNS change.
 2. **Supabase Free pauses a project after 1 week of inactivity**, and un-pausing is a manual dashboard action; the store would be down until someone restores it. Mitigation: a **daily keep-alive ping via the REST API** from the Cloudflare cron Worker, for both production and staging (§18), plus real traffic and the frequent backup dumps (which also connect over SQL). _Verify in Phase 0 that a REST request counts as activity, and that Supabase's terms have no objection to keep-alive pings._
-3. **Supabase Free has no backups and no point-in-time recovery.** Mitigation: our own encrypted `pg_dump` **every 6 hours**, a **dump before every migration**, off-platform copies, and a freshness alarm (§16). Worst-case data loss is about 6 hours of changes; Razorpay's records let us reconcile payments.
+3. **Supabase Free has no backups and no point-in-time recovery.** Mitigation: our own encrypted `pg_dump` **every 12 hours**, a **dump before every migration**, off-platform copies, a weekly rolling-retention prune, and a freshness alarm (§16). Worst-case data loss is about 12 hours of changes — accepted as adequate at this order volume; Razorpay's records let us reconcile payments if it ever matters.
 4. **Enabling the REST API exposes tables to anyone holding the public anon key.** The keep-alive needs REST, so the database is locked down by design (§4, §14): app tables in a **private `app` schema**, RLS deny-all on every table, and only a one-row `keepalive` schema exposed. If Phase 0 shows SQL activity also prevents pausing, the Data API is disabled entirely instead.
 5. **500 MB per project, shared CPU, 500 MB RAM (Micro instance), 60 direct / 200 pooler connections.** Enough for tens of thousands of orders (≈5 KB per order all-in, an estimate); images live in R2. Alert at 400 MB. Keep queries indexed and connections small.
 6. **Only 2 active free projects**: production + staging. Development uses local Docker Postgres.
@@ -67,7 +67,8 @@ A **modular monolith**: one Next.js app on Vercel, one Supabase Postgres databas
 
    Cloudflare cron Worker (every 10 min) --> POST /api/cron/reconcile (Bearer CRON_SECRET)
    Cloudflare cron Worker (daily)        --> REST keep-alive ping (prod + staging) + backup-freshness check
-   GitHub Actions (every 6 h)            --> pg_dump --> age-encrypt --> R2 backups + off-Cloudflare copy
+   GitHub Actions (every 12h)            --> pg_dump --> age-encrypt --> R2 backups + off-Cloudflare copy
+   GitHub Actions (weekly)               --> prune-backups.ts (rolling retention)
    Razorpay webhooks                     --> /api/webhooks/razorpay (signature-verified; source of truth)
 ```
 

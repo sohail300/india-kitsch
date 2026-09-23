@@ -13,7 +13,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/server/db/seed.ts",
+    "db:backup": "tsx scripts/backup-db.ts",
+    "db:prune-backups": "tsx scripts/prune-backups.ts"
   },
   "engines": {
     "node": ">=22"
@@ -21,6 +24,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1138.0",
     "@aws-sdk/s3-request-presigner": "^3.1138.0",
+    "age-encryption": "^0.3.1",
     "better-auth": "^1.7.5",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.5",

@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# backup encryption key (docs/16) — the private half decrypts every
+# database backup; it belongs in a password manager, never in git
+*.PRIVATE
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

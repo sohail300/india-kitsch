@@ -10,6 +10,32 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 
 `docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment** (a customer who pays after their 5-minute hold expired) inside the **10-minute reconciler** (step 7). It should also run directly in the **webhook handler** (step 5), so a late payer isn't waiting up to 10 minutes for their order to confirm or their refund to start — the reconciler then becomes the backstop for a lost webhook, not the primary path. Update §9/§10 with this before implementing checkout in Phase 6 (checkout & payments backend).
 
+## GitHub Actions secrets needed (blocks the backup pipeline right now)
+
+`.github/workflows/backup.yml` and `prune-backups.yml` (docs/08 §16) are written but can't run until these exist in the repo's **Settings → Secrets and variables → Actions**. Add at **repo** scope (not environment-scoped — there's only one environment for these jobs).
+
+**Secrets** (Secrets tab):
+
+| Name                   | Value / where to get it                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL_SESSION` | Same value as in `.env.local` — Supabase's **session pooler** connection string (Project Settings → Database) |
+| `R2_ACCOUNT_ID`        | Same as `.env.local`                                                                                          |
+| `R2_ACCESS_KEY_ID`     | Same as `.env.local`                                                                                          |
+| `R2_SECRET_ACCESS_KEY` | Same as `.env.local`                                                                                          |
+| `R2_BUCKET`            | Same as `.env.local`                                                                                          |
+| `B2_ENDPOINT`          | From the Backblaze B2 bucket you still need to create (see the prerequisites list below)                      |
+| `B2_BUCKET`            | From that same B2 bucket                                                                                      |
+| `B2_ACCESS_KEY_ID`     | From a B2 application key                                                                                     |
+| `B2_SECRET_ACCESS_KEY` | From that same application key                                                                                |
+
+**Variables**, not secrets (Variables tab — it's genuinely not sensitive, safe to be visible in plain text):
+
+| Name                    | Value                                                                       |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `BACKUP_AGE_PUBLIC_KEY` | The public half of the age keypair — already in `.env.local`/`.env.example` |
+
+Until these exist, both workflows will fail on every scheduled run (harmless — nothing partial happens, they just exit with a missing-env error) or can simply be left un-triggered until you're ready.
+
 ## Owner/user prerequisites (long lead time — start whenever convenient, no code blocked on these)
 
 - Owner-created, owner-owned accounts with 2FA: GitHub, Vercel, Supabase (2 projects: production, staging), Cloudflare (DNS + R2), Razorpay (**start KYC now** — longest lead time of anything here), Resend, Sentry, Backblaze B2. Developer gets **invited access** (team member / scoped API token) on each, never a shared login — see `docs/11-risks-scope-decisions.md` §27/§29 #2.

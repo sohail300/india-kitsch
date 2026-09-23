@@ -1,0 +1,40 @@
+name: Database backup
+
+on:
+  schedule:
+    # Every 12 hours (docs/08 §16). Rolling retention (see
+    # prune-backups.yml) keeps the object count bounded, so a tighter
+    # RPO doesn't mean unbounded growth. GitHub's scheduler is
+    # best-effort and can run a few minutes late, but never early.
+    - cron: "0 21,9 * * *" # ~2:30am and ~2:30pm IST
+  workflow_dispatch: {} # manual "Run workflow" button, for testing or an on-demand backup
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install PostgreSQL client (pg_dump)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run backup
+        env:
+          DATABASE_URL_SESSION: ${{ secrets.DATABASE_URL_SESSION }}
+          BACKUP_AGE_PUBLIC_KEY: ${{ vars.BACKUP_AGE_PUBLIC_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+          B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+        run: npx tsx scripts/backup-db.ts --reason=scheduled

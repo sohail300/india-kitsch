@@ -51,11 +51,11 @@ india-kitsch/
 ├─ drizzle/                             # generated SQL migrations (committed)
 ├─ cron-worker/                         # tiny Cloudflare Worker: scheduled() → POST /api/cron/*
 ├─ tests/{unit, integration, e2e}
-├─ scripts/{create-admin.ts, backup-db.sh, restore-drill.md}
-├─ docs/                                # this documentation set + runbooks/
+├─ scripts/{create-admin.ts, backup-db.ts, prune-backups.ts, lib/backup-retention.ts}
+├─ docs/                                # this documentation set + runbooks/ (e.g. runbooks/restore.md)
 ├─ compose.yaml                         # local Postgres 16
 ├─ vercel.json  drizzle.config.ts  .env.example
-└─ .github/workflows/{ci.yml, migrate.yml, backup.yml}
+└─ .github/workflows/{ci.yml, migrate.yml, backup.yml, prune-backups.yml}
 ```
 
 Rules: pages/actions stay thin; modules own the rules; only `server/` touches the DB; a module imports another module's _service_, never its repository. "Modules" is a code-organisation convention inside the same app; it doesn't change how requests are served and it doesn't replace Route Handlers (those are used wherever HTTP is genuinely required).

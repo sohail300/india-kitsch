@@ -23,4 +23,15 @@
   "observability": {
     "enabled": true,
   },
+
+  // Read-only use: listing the backups/ prefix to check freshness
+  // (docs/08 §16, §18). Reuses the same bucket scripts/backup-db.ts
+  // writes to — see the TODO there about splitting into a dedicated
+  // bucket before production.
+  "r2_buckets": [
+    {
+      "binding": "BACKUPS",
+      "bucket_name": "india-kitsch-staging",
+    },
+  ],
 }
