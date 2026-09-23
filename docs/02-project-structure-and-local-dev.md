@@ -51,9 +51,9 @@ india-kitsch/
 ├─ drizzle/                             # generated SQL migrations (committed)
 ├─ cron-worker/                         # tiny Cloudflare Worker: scheduled() → POST /api/cron/*
 ├─ tests/{unit, integration, e2e, setup}         # setup/: Vitest bootstrap (server-only stub, .env.local loader)
-├─ scripts/{create-admin.ts, backup-db.ts, prune-backups.ts, lib/backup-retention.ts}
+├─ scripts/{create-admin.ts, backup-db.ts, prune-backups.ts, local-db-init.sql, lib/backup-retention.ts}
 ├─ docs/                                # this documentation set + runbooks/ (e.g. runbooks/restore.md)
-├─ compose.yaml                         # local Postgres 16
+├─ compose.yaml                         # local Postgres 16 for integration tests (docs/09 §20)
 ├─ vercel.json  drizzle.config.ts  .env.example
 └─ .github/workflows/{ci.yml, migrate.yml, backup.yml, prune-backups.yml}
 ```
@@ -62,10 +62,10 @@ Rules: pages/actions stay thin; modules own the rules; only `server/` touches th
 
 ## 17. Local development setup
 
-- **Prereqs:** Ubuntu (native or WSL2; CI also runs Ubuntu), Node 22 LTS, Git, Docker (for local Postgres). If using WSL2, keep the repo in the Linux filesystem (e.g. `~/projects/india-kitsch`), not under `/mnt/d/`; file watching and `npm install` are much slower across the mount.
-- **Database locally:** `docker compose up -d` starts Postgres 16 (`compose.yaml`). Local and test databases never touch Supabase (its free tier has only 2 projects, both reserved for staging and production).
-- **Flow:** `npm run dev` → `npm run db:generate` (drizzle-kit) → `npm run db:migrate` → `npm run db:seed` (categories, ~20 products with variants and stock, test coupons, an admin user).
-- **Env vars:** `.env.local` (gitignored) holds Razorpay **test** keys, `DATABASE_URL` (local), Better Auth secret, Google OAuth dev client, Resend key (or a console email driver), R2 credentials for a **dev bucket**. `.env.example` is committed. `vercel env pull` can sync Preview values when needed.
+- **Prereqs:** Ubuntu (native or WSL2; CI also runs Ubuntu), Node 22 LTS, Git, a Docker-compatible engine for local Postgres (Docker Desktop, or Podman + `podman compose` — either works with `compose.yaml` as written). If using WSL2, keep the repo in the Linux filesystem (e.g. `~/projects/india-kitsch`), not under `/mnt/d/`; file watching and `npm install` are much slower across the mount.
+- **Integration-test database:** `docker compose up -d` (or `podman compose up -d`) starts Postgres 16 (`compose.yaml`), with `scripts/local-db-init.sql` creating stand-in `anon`/`authenticated` roles so migration 0001's Supabase-role grants/revokes apply unchanged (docs/03 §4 "Portability note"). Point `TEST_DATABASE_URL` (`.env.example`) at it, then `npx tsx tests/setup/migrate-test-db.ts` to migrate it. `tests/integration/*` use this database exclusively — **never Supabase** (docs/09 §20) — via an injectable `dbHandle` argument (default: the app's real `db`; tests pass one bound to `TEST_DATABASE_URL` instead). CI runs the identical flow against a GitHub Actions Postgres service container (`.github/workflows/ci.yml`), so no Supabase credentials are needed in CI at all.
+- **App dev database:** in practice this project runs `npm run dev` directly against the real Supabase project (`DATABASE_URL` in `.env.local`) rather than the local container — simpler for a single-developer project already relying on "verify against real infrastructure," at the cost of local writes touching a shared free-tier DB. Migrations: `npm run db:generate` (drizzle-kit) → `npm run db:migrate` → `npm run db:seed`.
+- **Env vars:** `.env.local` (gitignored) holds Razorpay **test** keys, `DATABASE_URL` (Supabase — see above), `TEST_DATABASE_URL` (local, integration tests only), Better Auth secret, Google OAuth dev client, Resend key (or a console email driver), R2 credentials for a **dev bucket**. `.env.example` is committed. `vercel env pull` can sync Preview values when needed.
 - **Razorpay webhooks locally:** Cloudflare Tunnel (`cloudflared`) → set the tunnel URL as the test webhook in Razorpay.
 - **Production-like check:** `npm run build && npm run start` before merging anything touching caching (Cache Components behaves differently in `dev`).
 - **Quality gates:** ESLint (`eslint-config-next`), `tsc --noEmit`, Prettier, Vitest.

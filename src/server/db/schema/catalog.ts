@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import { boolean, index, integer, jsonb, text, timestamp, unique } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { appSchema } from "./_shared";
@@ -122,3 +123,49 @@ export const productImages = appSchema.table(
     index("product_images_variant_id_idx").on(table.variantId),
   ],
 );
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
+    relationName: "categoryParent",
+  }),
+  children: many(categories, { relationName: "categoryParent" }),
+  products: many(products),
+}));
+
+export const sizeChartsRelations = relations(sizeCharts, ({ many }) => ({
+  products: many(products),
+}));
+
+export const productsRelations = relations(products, ({ one, many }) => ({
+  category: one(categories, {
+    fields: [products.categoryId],
+    references: [categories.id],
+  }),
+  sizeChart: one(sizeCharts, {
+    fields: [products.sizeChartId],
+    references: [sizeCharts.id],
+  }),
+  variants: many(productVariants),
+  images: many(productImages),
+}));
+
+export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
+  product: one(products, {
+    fields: [productVariants.productId],
+    references: [products.id],
+  }),
+  images: many(productImages),
+}));
+
+export const productImagesRelations = relations(productImages, ({ one }) => ({
+  product: one(products, {
+    fields: [productImages.productId],
+    references: [products.id],
+  }),
+  variant: one(productVariants, {
+    fields: [productImages.variantId],
+    references: [productVariants.id],
+  }),
+}));
