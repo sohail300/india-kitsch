@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import type { Db } from "@/server/db/client";
 import { payments, refunds, webhookEvents } from "@/server/db/schema";
+import { emailSender as defaultEmailSender } from "@/server/lib/email";
+import type { EmailSender } from "@/server/lib/email";
 import { env } from "@/server/lib/env";
 import { getOrderByRazorpayOrderId } from "@/server/modules/orders/queries";
 import { createRazorpayClient, verifyWebhookSignature } from "./razorpay";
@@ -58,6 +60,7 @@ export async function handleRazorpayWebhook(
   dbHandle: Db = db,
   webhookSecret: string | undefined = env.RAZORPAY_WEBHOOK_SECRET,
   razorpay: RazorpayClient = createRazorpayClient(),
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<WebhookResult> {
   if (!webhookSecret) {
     return { status: 503, outcome: "webhook_secret_not_configured" };
@@ -90,7 +93,7 @@ export async function handleRazorpayWebhook(
     return { status: 200, outcome: "duplicate" };
   }
 
-  const outcome = await dispatch(event, dbHandle, razorpay);
+  const outcome = await dispatch(event, dbHandle, razorpay, emailSender);
   await dbHandle
     .update(webhookEvents)
     .set({ processedAt: new Date(), outcome })
@@ -103,11 +106,12 @@ async function dispatch(
   event: RazorpayWebhookEvent,
   dbHandle: Db,
   razorpay: RazorpayClient,
+  emailSender: EmailSender,
 ): Promise<string> {
   switch (event.event) {
     case "payment.captured":
     case "order.paid":
-      return handlePaymentCaptured(event, dbHandle, razorpay);
+      return handlePaymentCaptured(event, dbHandle, razorpay, emailSender);
     case "payment.failed":
       return handlePaymentFailed(event, dbHandle);
     case "refund.processed":
@@ -129,6 +133,7 @@ async function handlePaymentCaptured(
   event: RazorpayWebhookEvent,
   dbHandle: Db,
   razorpay: RazorpayClient,
+  emailSender: EmailSender,
 ): Promise<string> {
   const payment = event.payload.payment?.entity;
   if (!payment) return "malformed_payload";
@@ -147,7 +152,14 @@ async function handlePaymentCaptured(
     error_description: payment.error_description,
   };
 
-  const outcome = await settleCapturedPayment(order, captured, "razorpay", dbHandle, razorpay);
+  const outcome = await settleCapturedPayment(
+    order,
+    captured,
+    "razorpay",
+    dbHandle,
+    razorpay,
+    emailSender,
+  );
   switch (outcome) {
     case "paid":
       return "processed";

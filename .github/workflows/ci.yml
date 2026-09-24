@@ -8,10 +8,19 @@ on:
 env:
   # A single local Postgres service container backs every step below —
   # integration tests never touch the Supabase projects (docs/09 §20).
-  # None of this is secret: the DB is ephemeral and torn down at the end of
-  # the run, and the rest are placeholders that only need to pass
-  # src/server/lib/env.ts's format validation — no test or build step
-  # actually calls Razorpay, Resend, R2 or Turnstile for real.
+  # Razorpay is always mocked (an injectable fetchImpl, docs/09 §20), so its
+  # two vars below are harmless placeholders — no test calls the real
+  # Razorpay API. R2 and Resend are different: tests/integration/
+  # media-uploads.test.ts and notifications.test.ts deliberately call the
+  # *real* R2 bucket and the *real* Resend API (same "verify against real
+  # infrastructure" discipline as everything else, docs/09 §20) — there's
+  # no good local emulator for either. That means R2_*/RESEND_API_KEY/
+  # EMAIL_FROM below must be real values, not placeholders, or those two
+  # test files fail here. Add them as repo secrets (Settings -> Secrets and
+  # variables -> Actions) — same dev credentials already in .env.local, or
+  # CI-scoped equivalents — then this comment's TODO is done:
+  # TODO(owner): add repo secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+  # R2_SECRET_ACCESS_KEY, R2_BUCKET, RESEND_API_KEY, CI_EMAIL_FROM.
   DATABASE_URL: postgres://postgres:postgres@localhost:5432/india_kitsch
   DATABASE_URL_SESSION: postgres://postgres:postgres@localhost:5432/india_kitsch
   TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/india_kitsch
@@ -19,15 +28,16 @@ env:
   BETTER_AUTH_URL: http://localhost:3000
   NEXT_PUBLIC_SITE_URL: http://localhost:3000
   NEXT_PUBLIC_IMAGE_BASE_URL: http://localhost:3000/images
-  EMAIL_FROM: orders@example.com
+  EMAIL_FROM: ${{ secrets.CI_EMAIL_FROM || 'orders@example.com' }}
   CONTACT_INBOX_EMAIL: hello@example.com
-  R2_ACCOUNT_ID: ci-placeholder
-  R2_ACCESS_KEY_ID: ci-placeholder
-  R2_SECRET_ACCESS_KEY: ci-placeholder
-  R2_BUCKET: ci-placeholder
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || 'ci-placeholder' }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || 'ci-placeholder' }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY || 'ci-placeholder' }}
+  R2_BUCKET: ${{ secrets.R2_BUCKET || 'ci-placeholder' }}
   CRON_SECRET: ci-only-placeholder-secret-not-used-anywhere-real
   RAZORPAY_KEY_SECRET: ci-placeholder
   NEXT_PUBLIC_RAZORPAY_KEY_ID: ci-placeholder
+  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'ci-placeholder' }}
 
 jobs:
   ci:

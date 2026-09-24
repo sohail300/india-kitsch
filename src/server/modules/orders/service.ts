@@ -3,8 +3,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import type { Db, Tx } from "@/server/db/client";
 import { payments } from "@/server/db/schema";
+import { emailSender as defaultEmailSender } from "@/server/lib/email";
+import type { EmailSender } from "@/server/lib/email";
 import { releaseCoupon } from "@/server/modules/coupons/service";
 import { releaseStock, sellReservedStock } from "@/server/modules/inventory/service";
+import { sendOrderConfirmationEmail } from "@/server/modules/notifications/service";
 import { getExpiredPendingOrderIdsForVariants, getOrderById, getOrderItems } from "./queries";
 import type { Order } from "./stateMachine";
 import { transition } from "./stateMachine";
@@ -27,15 +30,18 @@ export interface MarkOrderPaidResult {
  * Idempotent and shared by the verify fast-path, the webhook, and the
  * reconciler (docs/06 §9 step 6). One transaction: transition
  * pending_payment -> paid (a no-op if it's already past that state),
- * convert the reservation to a sale, and record the actual payment.
- * Confirmation email is the caller's job via `after()`, not this function's
- * — email content/design is Phase 8.
+ * convert the reservation to a sale, and record the actual payment. The
+ * confirmation email is sent after the transaction commits, never inside
+ * it — an external HTTP call has no business holding a DB connection open,
+ * and a failed send (logged, not thrown — see notifications/service.ts)
+ * must never roll back an order that's genuinely paid.
  */
 export async function markOrderPaid(
   input: MarkOrderPaidInput,
   dbHandle: Db = db,
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<MarkOrderPaidResult> {
-  return dbHandle.transaction(async (tx) => {
+  const result = await dbHandle.transaction(async (tx) => {
     const updated = await transition(tx, input.orderId, "pending_payment", "paid", input.actor, {
       note: `razorpay payment ${input.razorpayPaymentId}`,
     });
@@ -60,6 +66,12 @@ export async function markOrderPaid(
 
     return { alreadyProcessed: false, order: updated };
   });
+
+  if (!result.alreadyProcessed) {
+    await sendOrderConfirmationEmail(input.orderId, dbHandle, emailSender);
+  }
+
+  return result;
 }
 
 /**

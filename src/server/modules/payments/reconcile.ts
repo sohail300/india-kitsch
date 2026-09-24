@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "@/server/db/client";
 import type { Db } from "@/server/db/client";
+import { emailSender as defaultEmailSender } from "@/server/lib/email";
+import type { EmailSender } from "@/server/lib/email";
 import { logger } from "@/server/lib/logger";
 import { cancelPendingOrder } from "@/server/modules/orders/service";
 import {
@@ -27,7 +29,7 @@ export interface ReconcileResult {
   latePaymentChecked: number;
   latePaymentReinstated: number;
   latePaymentRefunded: number;
-  /** Anything that needs a human: amount mismatches, a captured payment that couldn't be reinstated or auto-refunded. Owner alerting is a Phase 8 email concern — logged for now. */
+  /** Anything that needs a human: amount mismatches, a captured payment that couldn't be reinstated or auto-refunded. Owner alerting (distinct from the customer-facing templates Phase 8 built) is still logged only — not one of the 6 named templates, still open. */
   alerts: string[];
 }
 
@@ -48,6 +50,7 @@ export async function reconcileExpiredOrders(
   dbHandle: Db = db,
   razorpay: RazorpayClient = createRazorpayClient(),
   now: Date = new Date(),
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<ReconcileResult> {
   const alerts: string[] = [];
   let markedPaid = 0;
@@ -75,7 +78,14 @@ export async function reconcileExpiredOrders(
         continue;
       }
 
-      const outcome = await settleCapturedPayment(order, captured, "system", dbHandle, razorpay);
+      const outcome = await settleCapturedPayment(
+        order,
+        captured,
+        "system",
+        dbHandle,
+        razorpay,
+        emailSender,
+      );
       if (outcome === "paid") markedPaid++;
       else if (outcome === "amount_mismatch") {
         alerts.push(
@@ -99,13 +109,20 @@ export async function reconcileExpiredOrders(
       const captured = findCapturedPayment(items);
       if (!captured) continue; // the normal case — nothing to reconcile (the webhook likely already handled it, or there's genuinely no late payment)
 
-      const outcome = await settleCapturedPayment(order, captured, "system", dbHandle, razorpay);
+      const outcome = await settleCapturedPayment(
+        order,
+        captured,
+        "system",
+        dbHandle,
+        razorpay,
+        emailSender,
+      );
       if (outcome === "reinstated") {
         latePaymentReinstated++;
       } else if (outcome === "refunded") {
         latePaymentRefunded++;
         alerts.push(
-          `Order ${order.id}: late payment auto-refunded — customer needs an explanation email`,
+          `Order ${order.id}: late payment auto-refunded (customer already emailed) — worth an owner sanity check`,
         );
       } else if (outcome === "amount_mismatch") {
         alerts.push(

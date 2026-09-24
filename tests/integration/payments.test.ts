@@ -11,6 +11,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "@/server/db/schema";
+import type { EmailSender } from "@/server/lib/email";
 import { env } from "@/server/lib/env";
 import { createId } from "@/server/lib/ids";
 import { createOrder } from "@/server/modules/checkout/createOrder";
@@ -41,6 +42,12 @@ function requireTestDatabaseUrl(): string {
 
 const client = postgres(requireTestDatabaseUrl(), { max: 10 });
 const db = drizzle(client, { schema });
+
+// A no-op sender — every order/payment function that might send a
+// transactional email takes an injectable EmailSender (same DI pattern as
+// razorpay); without passing this explicitly, these tests would silently
+// hit the real Resend API on every run (RESEND_API_KEY is a real key here).
+const mockEmailSender: EmailSender = { send: async () => {} };
 
 /** A scriptable fake Razorpay: order creation always succeeds; payment/refund responses are queued per test. */
 function createMockRazorpay() {
@@ -241,6 +248,8 @@ describe("markOrderPaid", () => {
     const result = await markOrderPaid(
       { orderId: order.orderId, razorpayPaymentId: "pay_1", method: "card", actor: "customer" },
       db,
+
+      mockEmailSender,
     );
 
     expect(result.alreadyProcessed).toBe(false);
@@ -270,10 +279,14 @@ describe("markOrderPaid", () => {
     await markOrderPaid(
       { orderId: order.orderId, razorpayPaymentId: "pay_2", actor: "customer" },
       db,
+
+      mockEmailSender,
     );
     const second = await markOrderPaid(
       { orderId: order.orderId, razorpayPaymentId: "pay_2", actor: "customer" },
       db,
+
+      mockEmailSender,
     );
 
     expect(second.alreadyProcessed).toBe(true);
@@ -304,6 +317,8 @@ describe("verifyPayment", () => {
       { orderId: order.orderId, razorpayPaymentId: "pay_verify_1", razorpaySignature: signature },
       db,
       mock.razorpay,
+
+      mockEmailSender,
     );
 
     expect(result).toEqual({ ok: true, orderId: order.orderId });
@@ -322,6 +337,8 @@ describe("verifyPayment", () => {
       },
       db,
       mock.razorpay,
+
+      mockEmailSender,
     );
 
     expect(result).toMatchObject({ ok: false, code: "signature_invalid" });
@@ -347,6 +364,8 @@ describe("verifyPayment", () => {
       { orderId: order.orderId, razorpayPaymentId: "pay_verify_2", razorpaySignature: signature },
       db,
       mock.razorpay,
+
+      mockEmailSender,
     );
 
     expect(result).toMatchObject({ ok: false, code: "amount_mismatch" });
@@ -374,6 +393,9 @@ describe("handleRazorpayWebhook", () => {
       { rawBody: body, signature: signBody(body), eventId: `evt_${createId()}` },
       db,
       WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
     );
 
     expect(result).toEqual({ status: 200, outcome: "processed" });
@@ -401,6 +423,9 @@ describe("handleRazorpayWebhook", () => {
       { rawBody: body, signature: "wrong-signature", eventId: `evt_${createId()}` },
       db,
       WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
     );
 
     expect(result).toEqual({ status: 400, outcome: "invalid_signature" });
@@ -429,11 +454,17 @@ describe("handleRazorpayWebhook", () => {
       { rawBody: body, signature: signBody(body), eventId },
       db,
       WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
     );
     const second = await handleRazorpayWebhook(
       { rawBody: body, signature: signBody(body), eventId },
       db,
       WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
     );
 
     expect(first.outcome).toBe("processed");
@@ -460,6 +491,9 @@ describe("handleRazorpayWebhook", () => {
       { rawBody: body, signature: signBody(body), eventId: `evt_${createId()}` },
       db,
       WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
     );
 
     expect(result).toEqual({ status: 200, outcome: "payment_failure_recorded" });
@@ -476,6 +510,8 @@ describe("handleRazorpayWebhook", () => {
     await markOrderPaid(
       { orderId: order.orderId, razorpayPaymentId: "pay_for_refund", actor: "customer" },
       db,
+
+      mockEmailSender,
     );
     const paymentRow = await db.query.payments.findFirst({
       where: eq(schema.payments.razorpayPaymentId, "pay_for_refund"),
@@ -495,6 +531,9 @@ describe("handleRazorpayWebhook", () => {
       { rawBody: body, signature: signBody(body), eventId: `evt_${createId()}` },
       db,
       WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
     );
 
     expect(result).toEqual({ status: 200, outcome: "refund_updated" });
@@ -511,7 +550,7 @@ describe("handleRazorpayWebhook", () => {
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where(eq(schema.orders.id, order.orderId));
     mock.queueOrderPayments(order.razorpayOrderId, []);
-    await reconcileExpiredOrders(db, mock.razorpay); // gets the order into cancelled/expired, same as the real lost-webhook path would
+    await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender); // gets the order into cancelled/expired, same as the real lost-webhook path would
 
     const body = webhookBody("payment.captured", {
       payment: {
@@ -531,6 +570,8 @@ describe("handleRazorpayWebhook", () => {
       db,
       WEBHOOK_SECRET,
       mock.razorpay,
+
+      mockEmailSender,
     );
 
     expect(result).toEqual({ status: 200, outcome: "late_payment_reinstated" });
@@ -550,7 +591,7 @@ describe("handleRazorpayWebhook", () => {
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where(eq(schema.orders.id, order.orderId));
     mock.queueOrderPayments(order.razorpayOrderId, []);
-    await reconcileExpiredOrders(db, mock.razorpay);
+    await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     await db
       .update(schema.inventory)
@@ -575,6 +616,8 @@ describe("handleRazorpayWebhook", () => {
       db,
       WEBHOOK_SECRET,
       mock.razorpay,
+
+      mockEmailSender,
     );
 
     expect(result).toEqual({ status: 200, outcome: "late_payment_refunded" });
@@ -611,7 +654,7 @@ describe("reconcileExpiredOrders", () => {
       }),
     ]);
 
-    const result = await reconcileExpiredOrders(db, mock.razorpay);
+    const result = await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     expect(result.markedPaid).toBeGreaterThanOrEqual(1);
     const dbOrder = await db.query.orders.findFirst({ where: eq(schema.orders.id, order.orderId) });
@@ -626,7 +669,7 @@ describe("reconcileExpiredOrders", () => {
       .where(eq(schema.orders.id, order.orderId));
     mock.queueOrderPayments(order.razorpayOrderId, []);
 
-    const result = await reconcileExpiredOrders(db, mock.razorpay);
+    const result = await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     expect(result.cancelled).toBeGreaterThanOrEqual(1);
     const dbOrder = await db.query.orders.findFirst({ where: eq(schema.orders.id, order.orderId) });
@@ -647,13 +690,13 @@ describe("reconcileExpiredOrders", () => {
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where(eq(schema.orders.id, order.orderId));
     mock.queueOrderPayments(order.razorpayOrderId, []);
-    await reconcileExpiredOrders(db, mock.razorpay);
+    await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     // Now a late captured payment shows up.
     mock.queueOrderPayments(order.razorpayOrderId, [
       mockPayment({ id: "pay_late_1", order_id: order.razorpayOrderId, amount: order.amountPaise }),
     ]);
-    const result = await reconcileExpiredOrders(db, mock.razorpay);
+    const result = await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     expect(result.latePaymentReinstated).toBeGreaterThanOrEqual(1);
     const dbOrder = await db.query.orders.findFirst({ where: eq(schema.orders.id, order.orderId) });
@@ -673,7 +716,7 @@ describe("reconcileExpiredOrders", () => {
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where(eq(schema.orders.id, order.orderId));
     mock.queueOrderPayments(order.razorpayOrderId, []);
-    await reconcileExpiredOrders(db, mock.razorpay);
+    await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     // Someone else takes the now-freed single unit.
     await db
@@ -684,7 +727,7 @@ describe("reconcileExpiredOrders", () => {
     mock.queueOrderPayments(order.razorpayOrderId, [
       mockPayment({ id: "pay_late_2", order_id: order.razorpayOrderId, amount: order.amountPaise }),
     ]);
-    const result = await reconcileExpiredOrders(db, mock.razorpay);
+    const result = await reconcileExpiredOrders(db, mock.razorpay, undefined, mockEmailSender);
 
     expect(result.latePaymentRefunded).toBeGreaterThanOrEqual(1);
     const dbOrder = await db.query.orders.findFirst({ where: eq(schema.orders.id, order.orderId) });

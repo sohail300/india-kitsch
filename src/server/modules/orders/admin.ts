@@ -4,9 +4,16 @@ import { db } from "@/server/db/client";
 import type { Db } from "@/server/db/client";
 import { orders, payments, refunds } from "@/server/db/schema";
 import { NotFoundError } from "@/server/lib/errors";
+import { emailSender as defaultEmailSender } from "@/server/lib/email";
+import type { EmailSender } from "@/server/lib/email";
 import { writeAuditLog } from "@/server/modules/admin/audit";
 import type { AdminMutationResult } from "@/server/modules/admin/types";
 import { returnSoldStock } from "@/server/modules/inventory/service";
+import {
+  sendOrderCancelledEmail,
+  sendOrderRefundedEmail,
+  sendOrderShippedEmail,
+} from "@/server/modules/notifications/service";
 import { createRazorpayClient } from "@/server/modules/payments/razorpay";
 import type { RazorpayClient } from "@/server/modules/payments/razorpay";
 import { getOrderById, getOrderItems } from "./queries";
@@ -65,8 +72,9 @@ export async function markOrderShipped(
   input: MarkOrderShippedInput,
   adminUserId: string,
   dbHandle: Db = db,
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<AdminMutationResult<Order>> {
-  return dbHandle.transaction(async (tx) => {
+  const result = await dbHandle.transaction(async (tx) => {
     const order = await getOrderById(input.orderId, tx);
     if (!order) throw new NotFoundError(`Order ${input.orderId}`);
 
@@ -103,6 +111,10 @@ export async function markOrderShipped(
 
     return { result: updated, revalidateTags: [] };
   });
+
+  await sendOrderShippedEmail(input.orderId, dbHandle, emailSender);
+
+  return result;
 }
 
 export async function markOrderDelivered(
@@ -193,6 +205,7 @@ export async function refundOrder(
   adminUserId: string,
   dbHandle: Db = db,
   razorpay: RazorpayClient = createRazorpayClient(),
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<AdminMutationResult<{ order: Order; refundId: string }>> {
   const order = await getOrderById(input.orderId, dbHandle);
   if (!order) throw new NotFoundError(`Order ${input.orderId}`);
@@ -216,7 +229,8 @@ export async function refundOrder(
     notes: { reason: input.reason },
   });
 
-  return dbHandle.transaction(async (tx) => {
+  let isFullRefund = false;
+  const result = await dbHandle.transaction(async (tx) => {
     const [refundRow] = await tx
       .insert(refunds)
       .values({
@@ -231,7 +245,7 @@ export async function refundOrder(
       .returning();
 
     const newRefundedPaise = order.refundedPaise + amountPaise;
-    const isFullRefund = newRefundedPaise >= order.totalPaise;
+    isFullRefund = newRefundedPaise >= order.totalPaise;
 
     if (isFullRefund) {
       await transition(tx, input.orderId, order.status, "refunded", actorFor(adminUserId), {
@@ -255,6 +269,10 @@ export async function refundOrder(
 
     return { result: { order: afterUpdate!, refundId: refundRow!.id }, revalidateTags: [] };
   });
+
+  await sendOrderRefundedEmail(input.orderId, amountPaise, isFullRefund, dbHandle, emailSender);
+
+  return result;
 }
 
 export interface CancelPaidOrderInput {
@@ -273,6 +291,7 @@ export async function cancelPaidOrder(
   adminUserId: string,
   dbHandle: Db = db,
   razorpay: RazorpayClient = createRazorpayClient(),
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<AdminMutationResult<Order>> {
   const order = await getOrderById(input.orderId, dbHandle);
   if (!order) throw new NotFoundError(`Order ${input.orderId}`);
@@ -292,7 +311,7 @@ export async function cancelPaidOrder(
         })
       : null;
 
-  return dbHandle.transaction(async (tx) => {
+  const result = await dbHandle.transaction(async (tx) => {
     if (razorpayRefund && payment) {
       await tx.insert(refunds).values({
         orderId: input.orderId,
@@ -349,4 +368,8 @@ export async function cancelPaidOrder(
 
     return { result: afterUpdate!, revalidateTags: [] };
   });
+
+  await sendOrderCancelledEmail(input.orderId, input.reason, remaining, dbHandle, emailSender);
+
+  return result;
 }

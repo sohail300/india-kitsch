@@ -43,10 +43,11 @@ india-kitsch/
 │  │  │  ├─ coupons/     {service.ts, validate.ts, discount.ts, schemas.ts, admin.ts, admin-schemas.ts}  # discount.ts: pure amount math; validate.ts: DB eligibility preview; service.ts: atomic conditional-UPDATE redemption; admin.ts: CRUD
 │  │  │  ├─ payments/    {razorpay.ts, verify.ts, webhook.ts, reconcile.ts, settle.ts}  # settle.ts: the captured-payment decision shared by webhook.ts and reconcile.ts
 │  │  │  ├─ media/       {r2.ts, uploads.ts}
-│  │  │  ├─ customers/   {queries.ts, service.ts, schemas.ts}  notifications/
+│  │  │  ├─ customers/   {queries.ts, service.ts, schemas.ts}
+│  │  │  ├─ notifications/ {service.ts, templates/{shared.ts, auth.ts, orders.ts}}  # service.ts: loads order data + sends; templates/auth.ts has no lib/money.ts dependency (see its own comment — needed for auth/config.ts's tsx-script chain)
 │  │  │  ├─ settings/    {queries.ts, schemas.ts, admin.ts}    # store_settings typed accessors (shipping fee/threshold, GSTIN/seller state/contact) + the admin upsert
 │  │  │  ├─ admin/       {audit.ts, types.ts}                  # writeAuditLog (one entry per admin mutation, docs/07 §13) + the shared AdminMutationResult<T> shape
-│  │  ├─ lib/{money.ts, pricing.ts, tax.ts, ids.ts, errors.ts, logger.ts, rate-limit.ts, env.ts, email.ts}  # pricing.ts: the one place order totals are computed (docs/06 §9); email.ts: swappable EmailSender interface, console driver until Phase 8's Resend driver
+│  │  ├─ lib/{money.ts, pricing.ts, tax.ts, ids.ts, errors.ts, logger.ts, rate-limit.ts, env.ts, email.ts, resend.ts}  # pricing.ts: the one place order totals are computed (docs/06 §9); email.ts: swappable EmailSender, Resend-backed once RESEND_API_KEY is set (Phase 8), console driver until then; resend.ts: the hand-written Resend REST client (same pattern as payments/razorpay.ts)
 │  ├─ components/{ui (shadcn), store, admin, shared}
 │  ├─ lib/                              # client-safe helpers only
 │  └─ content/{faq.ts, size-guides.ts, policies/*.mdx}

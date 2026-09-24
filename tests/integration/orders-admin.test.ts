@@ -9,6 +9,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "@/server/db/schema";
+import type { EmailSender } from "@/server/lib/email";
 import { createId } from "@/server/lib/ids";
 import { createOrder } from "@/server/modules/checkout/createOrder";
 import {
@@ -35,6 +36,12 @@ function requireTestDatabaseUrl(): string {
 
 const client = postgres(requireTestDatabaseUrl(), { max: 10 });
 const db = drizzle(client, { schema });
+
+// Every order function that might send a transactional email takes an
+// injectable EmailSender (same DI pattern as razorpay); without this,
+// these tests would silently hit the real Resend API on every run
+// (RESEND_API_KEY is a real key here).
+const mockEmailSender: EmailSender = { send: async () => {} };
 
 function createMockRazorpay() {
   let refundCounter = 0;
@@ -185,6 +192,8 @@ async function createPaidOrder(onHand = 5, quantity = 1) {
   await markOrderPaid(
     { orderId: created.orderId, razorpayPaymentId: `pay_${createId()}`, actor: "customer" },
     db,
+
+    mockEmailSender,
   );
 
   return { orderId: created.orderId, variantId, razorpay };
@@ -206,6 +215,8 @@ describe("order lifecycle transitions", () => {
       },
       adminUserId,
       db,
+
+      mockEmailSender,
     );
     expect(shipped).toMatchObject({
       status: "shipped",
@@ -221,7 +232,12 @@ describe("order lifecycle transitions", () => {
     const { orderId } = await createPaidOrder();
     await markOrderProcessing(orderId, adminUserId, db);
     await expect(
-      markOrderShipped({ orderId, courier: "Delhivery", trackingNumber: "" }, adminUserId, db),
+      markOrderShipped(
+        { orderId, courier: "Delhivery", trackingNumber: "" },
+        adminUserId,
+        db,
+        mockEmailSender,
+      ),
     ).rejects.toThrow();
   });
 
@@ -251,6 +267,8 @@ describe("refundOrder", () => {
       adminUserId,
       db,
       razorpay,
+
+      mockEmailSender,
     );
 
     expect(result.order.status).toBe("paid");
@@ -266,6 +284,8 @@ describe("refundOrder", () => {
       adminUserId,
       db,
       razorpay,
+
+      mockEmailSender,
     );
 
     expect(result.order.status).toBe("refunded");
@@ -281,6 +301,8 @@ describe("refundOrder", () => {
         adminUserId,
         db,
         razorpay,
+
+        mockEmailSender,
       ),
     ).rejects.toThrow();
   });
@@ -332,7 +354,13 @@ describe("refundOrder", () => {
     if (!created.ok) throw new Error("setup failed");
 
     await expect(
-      refundOrder({ orderId: created.orderId, reason: "x" }, adminUserId, db, razorpay),
+      refundOrder(
+        { orderId: created.orderId, reason: "x" },
+        adminUserId,
+        db,
+        razorpay,
+        mockEmailSender,
+      ),
     ).rejects.toThrow();
   });
 });
@@ -347,6 +375,8 @@ describe("cancelPaidOrder", () => {
       adminUserId,
       db,
       razorpay,
+
+      mockEmailSender,
     );
 
     expect(result.status).toBe("cancelled");
@@ -362,10 +392,15 @@ describe("cancelPaidOrder", () => {
   it("rejects cancelling an order that's already shipped", async () => {
     const { orderId, razorpay } = await createPaidOrder();
     await markOrderProcessing(orderId, adminUserId, db);
-    await markOrderShipped({ orderId, courier: "X", trackingNumber: "Y" }, adminUserId, db);
+    await markOrderShipped(
+      { orderId, courier: "X", trackingNumber: "Y" },
+      adminUserId,
+      db,
+      mockEmailSender,
+    );
 
     await expect(
-      cancelPaidOrder({ orderId, reason: "x" }, adminUserId, db, razorpay),
+      cancelPaidOrder({ orderId, reason: "x" }, adminUserId, db, razorpay, mockEmailSender),
     ).rejects.toThrow();
   });
 });

@@ -3,6 +3,10 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { captcha, twoFactor } from "better-auth/plugins";
 import type { db as AppDb } from "@/server/db/client";
 import { emailSender } from "@/server/lib/email";
+import {
+  resetPasswordTemplate,
+  verifyEmailTemplate,
+} from "@/server/modules/notifications/templates/auth";
 
 /**
  * No `import "server-only"` here deliberately, same reasoning as the
@@ -46,21 +50,15 @@ export function createAuthConfig(db: typeof AppDb, env: AuthConfigEnv) {
       // doing so would let response timing reveal whether an address is
       // registered.
       sendResetPassword: async ({ user, url }) => {
-        void emailSender.send({
-          to: user.email,
-          subject: "Reset your India Kitsch password",
-          text: `Reset your password: ${url}\n\nIf you didn't request this, ignore this email.`,
-        });
+        const email = resetPasswordTemplate(user.name, url);
+        void emailSender.send({ to: user.email, ...email });
       },
     },
 
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
-        void emailSender.send({
-          to: user.email,
-          subject: "Verify your email — India Kitsch",
-          text: `Verify your email: ${url}`,
-        });
+        const email = verifyEmailTemplate(user.name, url);
+        void emailSender.send({ to: user.email, ...email });
       },
     },
 

@@ -2,8 +2,14 @@ import "server-only";
 import { db } from "@/server/db/client";
 import type { Db } from "@/server/db/client";
 import { payments, refunds } from "@/server/db/schema";
+import { emailSender as defaultEmailSender } from "@/server/lib/email";
+import type { EmailSender } from "@/server/lib/email";
 import { OutOfStockError } from "@/server/lib/errors";
 import { reserveStock, sellReservedStock } from "@/server/modules/inventory/service";
+import {
+  sendOrderConfirmationEmail,
+  sendOrderRefundedEmail,
+} from "@/server/modules/notifications/service";
 import { getOrderItems } from "@/server/modules/orders/queries";
 import { markOrderPaid, recordCapturedPayment } from "@/server/modules/orders/service";
 import { transition } from "@/server/modules/orders/stateMachine";
@@ -29,12 +35,14 @@ export async function settleCapturedPayment(
   actor: "razorpay" | "system",
   dbHandle: Db = db,
   razorpay?: RazorpayClient,
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<SettleOutcome> {
   if (captured.amount !== order.totalPaise || captured.currency !== order.currency) {
     return "amount_mismatch";
   }
 
   if (order.status === "pending_payment") {
+    // markOrderPaid sends the confirmation email itself once the transaction commits.
     await markOrderPaid(
       {
         orderId: order.id,
@@ -43,13 +51,20 @@ export async function settleCapturedPayment(
         actor,
       },
       dbHandle,
+      emailSender,
     );
     return "paid";
   }
 
   if (order.status === "cancelled" && order.cancelReason === "expired") {
     const reinstated = await tryReinstateLatePayment(dbHandle, order, captured);
-    if (reinstated) return "reinstated";
+    if (reinstated) {
+      // Reinstatement bypasses markOrderPaid (it drives its own cancelled
+      // -> paid transition), so the confirmation email is this function's
+      // job, not markOrderPaid's.
+      await sendOrderConfirmationEmail(order.id, dbHandle, emailSender);
+      return "reinstated";
+    }
 
     // Stock is gone or the order moved on — refund instead (docs/06 §9
     // step 7: "else auto-refund and email the customer"). Requires a
@@ -61,6 +76,7 @@ export async function settleCapturedPayment(
       );
     }
     await refundLatePayment(dbHandle, razorpay, order, captured);
+    await sendOrderRefundedEmail(order.id, captured.amount, true, dbHandle, emailSender);
     return "refunded";
   }
 

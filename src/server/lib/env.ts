@@ -49,8 +49,13 @@ const envSchema = z.object({
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   TURNSTILE_SECRET: z.string().min(1).optional(),
 
-  // Email (Resend) — required once Phase 8 (email/notifications backend) sends anything.
-  RESEND_API_KEY: z.string().min(1).optional(),
+  // Email (Resend) — Phase 8 built the email/notifications backend, so this
+  // is required now. Note `lib/email.ts` deliberately does NOT import this
+  // guarded `env` module (it reads `process.env.RESEND_API_KEY` directly)
+  // since it's imported by the unguarded `server/auth/config.ts`, for
+  // scripts/create-admin.ts under plain tsx — this check is still real,
+  // it just runs at the app's own boot time, not inside email.ts itself.
+  RESEND_API_KEY: z.string().min(1),
   EMAIL_FROM: z.email(),
   CONTACT_INBOX_EMAIL: z.email(),
 

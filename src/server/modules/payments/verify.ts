@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "@/server/db/client";
 import type { Db } from "@/server/db/client";
+import { emailSender as defaultEmailSender } from "@/server/lib/email";
+import type { EmailSender } from "@/server/lib/email";
 import { env } from "@/server/lib/env";
 import { getOrderById } from "@/server/modules/orders/queries";
 import { markOrderPaid } from "@/server/modules/orders/service";
@@ -36,6 +38,7 @@ export async function verifyPayment(
   input: VerifyPaymentInput,
   dbHandle: Db = db,
   razorpay: RazorpayClient = createRazorpayClient(),
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<VerifyPaymentResult> {
   const order = await getOrderById(input.orderId, dbHandle);
   if (!order || !order.razorpayOrderId) {
@@ -82,6 +85,7 @@ export async function verifyPayment(
       actor: "customer",
     },
     dbHandle,
+    emailSender,
   );
 
   return { ok: true, orderId: order.id };

@@ -55,25 +55,29 @@ describe("env", () => {
     // integrations as `KEY=""`, not a missing key. `.optional()` alone
     // only excuses `undefined` — an empty string still fails `.min(1)`
     // unless it's normalized first. Covers Google/Razorpay webhook/
-    // Turnstile/Resend — RAZORPAY_KEY_SECRET and NEXT_PUBLIC_RAZORPAY_KEY_ID
-    // are required now that Phase 6 built checkout, so they're deliberately
-    // left out of this empty-string set (still real values from VALID_ENV).
+    // Turnstile — RAZORPAY_KEY_SECRET, NEXT_PUBLIC_RAZORPAY_KEY_ID and
+    // RESEND_API_KEY are required now that Phase 6/8 built checkout/email,
+    // so they're deliberately left out of this empty-string set (still
+    // real values from VALID_ENV).
     stubValidEnv({
       GOOGLE_CLIENT_ID: "",
       GOOGLE_CLIENT_SECRET: "",
       RAZORPAY_WEBHOOK_SECRET: "",
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: "",
       TURNSTILE_SECRET: "",
-      RESEND_API_KEY: "",
     });
     const { env } = await import("@/server/lib/env");
     expect(env.GOOGLE_CLIENT_ID).toBeUndefined();
     expect(env.RAZORPAY_WEBHOOK_SECRET).toBeUndefined();
-    expect(env.RESEND_API_KEY).toBeUndefined();
   });
 
   it("rejects RAZORPAY_KEY_SECRET or NEXT_PUBLIC_RAZORPAY_KEY_ID left empty — required since Phase 6", async () => {
     stubValidEnv({ RAZORPAY_KEY_SECRET: "" });
+    await expect(import("@/server/lib/env")).rejects.toThrow(/Invalid environment variables/);
+  });
+
+  it("rejects RESEND_API_KEY left empty — required since Phase 8", async () => {
+    stubValidEnv({ RESEND_API_KEY: "" });
     await expect(import("@/server/lib/env")).rejects.toThrow(/Invalid environment variables/);
   });
 
