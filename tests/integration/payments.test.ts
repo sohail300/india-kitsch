@@ -505,6 +505,95 @@ describe("handleRazorpayWebhook", () => {
     expect(dbOrder?.status).toBe("pending_payment");
   });
 
+  it("rejects with amount_mismatch when the captured amount doesn't match the order total, and leaves the order pending", async () => {
+    const { order } = await createPendingOrder();
+    const body = webhookBody("payment.captured", {
+      payment: {
+        entity: {
+          id: "pay_wh_mismatch",
+          order_id: order.razorpayOrderId,
+          amount: order.amountPaise + 100, // tampered/short amount
+          currency: "INR",
+          method: "upi",
+          error_code: null,
+          error_description: null,
+        },
+      },
+    });
+
+    const result = await handleRazorpayWebhook(
+      { rawBody: body, signature: signBody(body), eventId: `evt_${createId()}` },
+      db,
+      WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
+    );
+
+    expect(result).toEqual({ status: 200, outcome: "amount_mismatch" });
+    const dbOrder = await db.query.orders.findFirst({ where: eq(schema.orders.id, order.orderId) });
+    expect(dbOrder?.status).toBe("pending_payment");
+    const paymentRows = await db.query.payments.findMany({
+      where: eq(schema.payments.orderId, order.orderId),
+    });
+    expect(paymentRows.every((p) => p.status !== "captured")).toBe(true);
+  });
+
+  it("processes an out-of-order payment.failed arriving after the order was already paid, without changing its status", async () => {
+    const { order } = await createPendingOrder();
+    const capturedBody = webhookBody("payment.captured", {
+      payment: {
+        entity: {
+          id: "pay_ooo_1",
+          order_id: order.razorpayOrderId,
+          amount: order.amountPaise,
+          currency: "INR",
+          method: "upi",
+          error_code: null,
+          error_description: null,
+        },
+      },
+    });
+    const capturedResult = await handleRazorpayWebhook(
+      { rawBody: capturedBody, signature: signBody(capturedBody), eventId: `evt_${createId()}` },
+      db,
+      WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
+    );
+    expect(capturedResult.outcome).toBe("processed");
+
+    // A stale payment.failed for a different attempt on the same order,
+    // delivered late (Razorpay/network reordering) after payment.captured
+    // already settled it — the order must stay paid.
+    const failedBody = webhookBody("payment.failed", {
+      payment: {
+        entity: {
+          id: "pay_ooo_2",
+          order_id: order.razorpayOrderId,
+          amount: order.amountPaise,
+          currency: "INR",
+          method: "card",
+          error_code: "BAD_REQUEST_ERROR",
+          error_description: "Card declined (arrived after capture)",
+        },
+      },
+    });
+    const failedResult = await handleRazorpayWebhook(
+      { rawBody: failedBody, signature: signBody(failedBody), eventId: `evt_${createId()}` },
+      db,
+      WEBHOOK_SECRET,
+
+      undefined,
+      mockEmailSender,
+    );
+
+    expect(failedResult).toEqual({ status: 200, outcome: "payment_failure_recorded" });
+    const dbOrder = await db.query.orders.findFirst({ where: eq(schema.orders.id, order.orderId) });
+    expect(dbOrder?.status).toBe("paid"); // the earlier capture is not undone by the late failure record
+  });
+
   it("updates a refund's status on refund.processed", async () => {
     const { order } = await createPendingOrder();
     await markOrderPaid(

@@ -451,4 +451,97 @@ describe("createOrder", () => {
       .where(eq(schema.inventory.variantId, variantId));
     expect(inventoryRow?.reserved).toBe(1); // only the second order's reservation remains
   });
+
+  it("under 10 concurrent full checkouts for 3 units of stock, exactly 3 orders succeed and reserved stock never exceeds on_hand", async () => {
+    const attempts = 10;
+    const stock = 3;
+    const userId = await createTestUser();
+    const addressId = await createTestAddress(userId);
+    const { variantId } = await createTestVariant(stock);
+    const ctx = await context(userId);
+
+    const results = await Promise.all(
+      Array.from({ length: attempts }, () => {
+        const { razorpay } = createMockRazorpay();
+        return createOrder(
+          { lines: [{ variantId, quantity: 1 }], addressId, idempotencyKey: createId() },
+          ctx,
+          db,
+          razorpay,
+        );
+      }),
+    );
+
+    const succeeded = results.filter((r) => r.ok);
+    const failed = results.filter((r) => !r.ok);
+    expect(succeeded).toHaveLength(stock);
+    expect(failed).toHaveLength(attempts - stock);
+    for (const failure of failed) {
+      expect(failure).toMatchObject({ ok: false, code: "out_of_stock" });
+    }
+
+    const [inventoryRow] = await db
+      .select()
+      .from(schema.inventory)
+      .where(eq(schema.inventory.variantId, variantId));
+    expect(inventoryRow?.reserved).toBe(stock); // never oversold, never under-reserved
+
+    const orderIds = succeeded.map((r) => (r.ok ? r.orderId : "")).filter(Boolean);
+    const paidOrders = await db.query.orders.findMany({
+      where: inArray(schema.orders.id, orderIds),
+    });
+    expect(paidOrders.every((o) => o.status === "pending_payment")).toBe(true);
+  }, 30_000);
+
+  it("under concurrent checkouts sharing one limited coupon and ample stock, exactly maxUses orders redeem it", async () => {
+    const attempts = 8;
+    const maxUses = 3;
+    const userId = await createTestUser();
+    const addressId = await createTestAddress(userId);
+    const { variantId } = await createTestVariant(attempts); // stock is not the bottleneck here
+    const ctx = await context(userId);
+
+    const couponId = createId();
+    const code = `CONC${couponId}`.slice(0, 40).toUpperCase();
+    await db
+      .insert(schema.coupons)
+      .values({ id: couponId, code, type: "percent", valueBps: 1000, maxUses });
+
+    const results = await Promise.all(
+      Array.from({ length: attempts }, () => {
+        const { razorpay } = createMockRazorpay();
+        return createOrder(
+          {
+            lines: [{ variantId, quantity: 1 }],
+            addressId,
+            idempotencyKey: createId(),
+            couponCode: code,
+          },
+          ctx,
+          db,
+          razorpay,
+        );
+      }),
+    );
+
+    const succeededWithCoupon = results.filter((r) => r.ok && r.amountPaise === 99900);
+    expect(succeededWithCoupon).toHaveLength(maxUses);
+
+    const [couponRow] = await db
+      .select()
+      .from(schema.coupons)
+      .where(eq(schema.coupons.id, couponId));
+    expect(couponRow?.usedCount).toBe(maxUses);
+
+    const redemptions = await db
+      .select()
+      .from(schema.couponRedemptions)
+      .where(eq(schema.couponRedemptions.couponId, couponId));
+    expect(redemptions).toHaveLength(maxUses);
+
+    await db
+      .delete(schema.couponRedemptions)
+      .where(eq(schema.couponRedemptions.couponId, couponId));
+    await db.delete(schema.coupons).where(eq(schema.coupons.id, couponId));
+  }, 30_000);
 });
