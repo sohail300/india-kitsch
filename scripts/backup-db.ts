@@ -24,9 +24,11 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { execFile } from "node:child_process";
+import { Agent as HttpsAgent } from "node:https";
 import { promisify } from "node:util";
 import { Encrypter } from "age-encryption";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 const execFileAsync = promisify(execFile);
 
@@ -73,13 +75,27 @@ async function uploadToR2(key: string, body: Uint8Array): Promise<void> {
   );
 }
 
+/** B2_ENDPOINT may be pasted with or without a scheme (`s3.ca-east-006.backblazeb2.com` vs `https://...`) — normalize either form. */
+function normalizeB2Endpoint(raw: string): string {
+  return raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
+}
+
+/** B2's S3-compatible API requires the signing region to match the bucket's actual region (`s3.<region>.backblazeb2.com`) — it's not the same for every bucket, so this can't be a hardcoded constant. */
+function b2RegionFromEndpoint(endpoint: string): string {
+  const match = /s3\.([a-z0-9-]+)\.backblazeb2\.com/.exec(endpoint);
+  if (!match) {
+    throw new Error(`Could not determine B2 region from B2_ENDPOINT: ${endpoint}`);
+  }
+  return match[1]!;
+}
+
 async function uploadToB2(key: string, body: Uint8Array): Promise<void> {
-  const endpoint = process.env.B2_ENDPOINT;
+  const rawEndpoint = process.env.B2_ENDPOINT;
   const bucket = process.env.B2_BUCKET;
   const accessKeyId = process.env.B2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.B2_SECRET_ACCESS_KEY;
 
-  if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
+  if (!rawEndpoint || !bucket || !accessKeyId || !secretAccessKey) {
     console.warn(
       "⚠ B2 not configured (B2_ENDPOINT/B2_BUCKET/B2_ACCESS_KEY_ID/B2_SECRET_ACCESS_KEY) — " +
         "skipping the off-Cloudflare copy. The R2 copy above is still real, but docs/16's " +
@@ -88,10 +104,17 @@ async function uploadToB2(key: string, body: Uint8Array): Promise<void> {
     return;
   }
 
+  const endpoint = normalizeB2Endpoint(rawEndpoint);
   const client = new S3Client({
-    region: "us-west-000", // B2's region is endpoint-specific; adjust to match your bucket
+    region: b2RegionFromEndpoint(endpoint),
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
+    // Verified directly (Phase 9 B2 setup): Node's default dual-stack
+    // dialer tried several of Backblaze's IPv6 addresses, each timing out,
+    // before ever falling back to IPv4 — even though IPv4 reaches this
+    // same host in ~3s. Forcing IPv4 here removes that class of failure
+    // on any network with a similarly bad IPv6 route to Backblaze.
+    requestHandler: new NodeHttpHandler({ httpsAgent: new HttpsAgent({ family: 4 }) }),
   });
   await client.send(
     new PutObjectCommand({
