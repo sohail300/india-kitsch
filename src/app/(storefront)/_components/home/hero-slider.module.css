@@ -1,0 +1,62 @@
+.banner {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+}
+
+.track {
+  display: flex;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slide {
+  flex: 0 0 100%;
+}
+
+.link {
+  display: block;
+}
+
+.image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3840 / 1600;
+  object-fit: cover;
+}
+
+.dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
+  transition: background 0.2s ease;
+}
+
+.dot[aria-current] {
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    transition: none;
+  }
+}
+
+@media (max-width: 749px) {
+  .image {
+    aspect-ratio: 2 / 3;
+  }
+}

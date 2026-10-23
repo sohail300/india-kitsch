@@ -1,0 +1,70 @@
+.container {
+  max-width: 614px;
+  margin: 0 auto;
+  padding: 20px 20px 72px;
+}
+
+.title {
+  text-align: center;
+}
+
+.title h1 {
+  margin-bottom: 14px;
+  font-family: var(--sf-font-heading);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: rgb(37 37 33);
+}
+
+/* Policy HTML carries its own inline styles from the store's editor. */
+.body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--sf-color-fg);
+}
+
+.body p {
+  margin: 0 0 8px;
+}
+
+.body ul,
+.body ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.body ul {
+  list-style: disc;
+}
+
+.body ol {
+  list-style: decimal;
+}
+
+.body a {
+  color: var(--sf-color-primary);
+  text-decoration: underline;
+}
+
+.body strong,
+.body b {
+  font-weight: 700;
+}
+
+.body h2,
+.body h3 {
+  margin: 24px 0 8px;
+  font-family: var(--sf-font-heading);
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 500;
+  color: rgb(37 37 33);
+}
+
+@media (max-width: 749px) {
+  .title h1 {
+    font-size: 40px;
+  }
+}

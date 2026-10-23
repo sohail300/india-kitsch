@@ -1,0 +1,114 @@
+/*
+ * Storefront theme (ported from the Sansevieria storefront). Everything is
+ * scoped to `.storefront` and its tokens use an --sf- prefix so none of it
+ * leaks into the admin panel's shadcn/Tailwind theme.
+ */
+.storefront {
+  --sf-font-body: var(--sf-font-inter), Inter, sans-serif;
+  --sf-font-heading: var(--sf-font-cormorant), Cormorant, serif;
+  --sf-font-system:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Requested by some headings but never loaded, so these fall back as on Sansevieria. */
+  --sf-font-garamond: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --sf-font-devanagari: "Noto Serif Devanagari", "Noto Sans Devanagari", Mangal, Kokila, serif;
+
+  --sf-color-bg: #fff;
+  --sf-color-fg: rgb(75 61 64);
+  --sf-color-heading: rgb(59 41 48);
+  --sf-color-primary: rgb(138 85 93);
+  --sf-color-border: rgb(218 199 195);
+
+  --sf-ink: rgb(39 52 42);
+  --sf-ink-deep: rgb(30 42 34);
+  --sf-cream: rgb(248 246 239);
+  --sf-paper: rgb(245 243 238);
+  --sf-clay: rgb(169 109 82);
+  --sf-gold: rgb(168 121 56);
+  --sf-gold-dot: rgb(197 150 79);
+  --sf-wine: rgb(72 27 43);
+  --sf-muted: rgb(109 116 110);
+
+  --sf-page-gutter: 40px;
+
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--sf-color-bg);
+  color: var(--sf-color-fg);
+  font-family: var(--sf-font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --sf-ticker-height: 64px;
+}
+
+@media (max-width: 749px) {
+  .storefront {
+    --sf-page-gutter: 16px;
+  }
+}
+
+.storefront main {
+  flex: 1 0 auto;
+}
+
+.storefront :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, ul, ol) {
+  margin: 0;
+}
+
+.storefront :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+.storefront :where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+.storefront :where(button) {
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.storefront :where(summary) {
+  list-style: none;
+  cursor: pointer;
+}
+
+.storefront summary::-webkit-details-marker {
+  display: none;
+}
+
+.storefront .visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.storefront .rte p + p {
+  margin-top: 0.85em;
+}
+
+.storefront .rte a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.storefront :focus-visible {
+  outline: 2px solid var(--sf-ink);
+  outline-offset: 2px;
+}

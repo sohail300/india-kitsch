@@ -1,0 +1,429 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: rgb(37 37 37);
+  background: #fff;
+}
+
+/* ---------- media ---------- */
+.media {
+  position: relative;
+}
+
+.gallery {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgb(243 241 236);
+}
+
+.mediaLink {
+  display: contents;
+}
+
+.galleryInner {
+  position: absolute;
+  inset: 0;
+}
+
+.track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.track::-webkit-scrollbar {
+  display: none;
+}
+
+.slide {
+  position: relative;
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+}
+
+.image {
+  object-fit: cover;
+}
+
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(76%, 190px);
+  min-height: 21px;
+  padding: 4px 7px;
+  border-radius: 3px 0 0 0;
+  background: linear-gradient(rgb(82 34 51) 0%, rgb(72 27 43) 100%);
+  box-shadow: 0 1px 3px rgba(30, 9, 18, 0.16);
+  color: rgb(248 243 236);
+  font-family: var(--sf-font-body);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.wishlist {
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 3px 10px rgba(24, 32, 25, 0.1);
+  color: var(--sf-ink);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.wishlist:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+
+.wishlist[data-saved] {
+  color: rgb(138 31 50);
+}
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--sf-ink);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease;
+}
+
+.arrowPrev {
+  left: 8px;
+}
+
+.arrowNext {
+  right: 8px;
+}
+
+.gallery:hover .arrow {
+  opacity: 1;
+}
+
+.pills {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  transform: translateX(-50%);
+}
+
+.pill {
+  width: 14px;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.55);
+  transition: background 0.2s ease;
+}
+
+.pill[data-active] {
+  background: #fff;
+}
+
+.quickAdd {
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  z-index: 20;
+}
+
+.quickAddButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(29, 29, 27, 0.14);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  color: rgb(29 29 27);
+  cursor: default;
+}
+
+/* ---------- content ---------- */
+.content {
+  display: flex;
+  flex-direction: column;
+  padding: 0 1px;
+}
+
+.label {
+  margin: 7px 0 1px;
+  font-family: var(--sf-font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+  color: rgb(100 80 71);
+}
+
+.title {
+  margin: 0 0 3px;
+  padding-top: 4px;
+  font-family: var(--sf-font-body);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgb(29 29 27);
+}
+
+.title a {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price {
+  font-family: var(--sf-font-body);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: rgb(23 23 23);
+}
+
+.compare {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(119 112 108);
+}
+
+.lowStock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-family: var(--sf-font-body);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: 0.015em;
+  color: rgb(150 81 62);
+}
+
+.lowStockDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.zoomOutTitle {
+  padding: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgb(29 29 27);
+}
+
+/* ---------- "Most loved" variant: bordered card ---------- */
+.card[data-variant="split"] {
+  border: 1px solid rgb(222 220 213);
+  border-radius: 14px;
+  overflow: hidden;
+  color: var(--sf-ink);
+  font-family: var(--sf-font-system);
+}
+
+.card[data-variant="split"] .media {
+  padding: 8px 8px 0;
+}
+
+.card[data-variant="split"] .gallery {
+  border-radius: 10px;
+  background: rgb(240 240 240);
+}
+
+.card[data-variant="split"] .pills {
+  display: none;
+}
+
+.card[data-variant="split"] .badge {
+  top: 10px;
+  left: 10px;
+  border-radius: 0;
+}
+
+.card[data-variant="split"] .wishlist {
+  top: 13px;
+  right: 13px;
+}
+
+.card[data-variant="split"] .content {
+  padding: 8px 18px 18px;
+}
+
+/* ---------- "New edit" variant: bordered card, grid typography ---------- */
+.card[data-variant="edit"] {
+  border: 1px solid rgb(222 220 213);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.card[data-variant="edit"] .media {
+  padding: 8px 8px 0;
+}
+
+.card[data-variant="edit"] .badge {
+  left: 10px;
+  border-radius: 0;
+}
+
+.card[data-variant="edit"] .wishlist {
+  top: 12px;
+  right: 12px;
+}
+
+.card[data-variant="edit"] .content {
+  padding: 0 18px 18px;
+}
+
+/* Image progress pills are a touch affordance; desktop hides them. */
+@media (min-width: 750px) {
+  .pills {
+    display: none;
+  }
+}
+
+/* ---------- Signature variant ---------- */
+.card[data-variant="signature"] {
+  color: var(--sf-ink);
+}
+
+.card[data-variant="signature"] .gallery {
+  border: 1px solid rgba(39, 52, 42, 0.06);
+  background: rgb(241 241 238);
+}
+
+.card[data-variant="signature"] .badge {
+  left: 10px;
+  border-radius: 0;
+}
+
+.card[data-variant="signature"] .wishlist {
+  top: 10px;
+  right: 10px;
+}
+
+.card[data-variant="signature"] .content {
+  padding: 14px 1px 0;
+}
+
+.card:is([data-variant="split"], [data-variant="signature"]) .label {
+  margin: 5px 0 4px;
+}
+
+.card:is([data-variant="split"], [data-variant="signature"]) .title {
+  margin: 0 0 5px;
+  padding: 0;
+  font-family: var(--sf-font-system);
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--sf-ink);
+}
+
+.card:is([data-variant="split"], [data-variant="signature"]) .title a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card[data-variant="split"] .priceRow {
+  margin-top: 11px;
+}
+
+.card[data-variant="signature"] .priceRow {
+  margin-top: 2px;
+}
+
+.card:is([data-variant="split"], [data-variant="signature"]) .price {
+  font-family: var(--sf-font-system);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--sf-ink);
+}
+
+.card:is([data-variant="split"], [data-variant="signature"]) .lowStock {
+  margin-top: 6px;
+}
+
+@media (hover: none) {
+  .arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 749px) {
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.045em;
+  }
+
+  .title {
+    font-size: 13.26px;
+  }
+
+  .card[data-variant="grid"] .content {
+    padding: 0 8px;
+  }
+
+  .card[data-variant="split"] {
+    border-radius: 11.9px;
+  }
+
+  .card[data-variant="split"] .media {
+    padding: 7px 7px 0;
+  }
+
+  .card[data-variant="split"] .content {
+    padding: 8px 14px 16px;
+  }
+
+  .quickAddButton {
+    width: 34px;
+    height: 34px;
+  }
+}
