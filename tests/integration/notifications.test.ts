@@ -47,7 +47,10 @@ describe("emailSender singleton", () => {
   it("resolves to the real Resend-backed sender when RESEND_API_KEY is set, and can actually send", async () => {
     // Confirms the env-driven wiring in lib/email.ts, not just the client in isolation.
     expect(env.RESEND_API_KEY).toBeTruthy(); // this test only means something if a real key is configured
-    const email = verifyEmailTemplate("Integration Test", "https://example.com/verify?token=test");
+    const email = await verifyEmailTemplate(
+      "Integration Test",
+      "https://example.com/verify?token=test",
+    );
     await expect(emailSender.send({ to: RESEND_TEST_ADDRESS, ...email })).resolves.toBeUndefined();
   });
 });

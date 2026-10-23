@@ -7,7 +7,7 @@ import { orders } from "./commerce";
 import { createId } from "@/server/lib/ids";
 
 /**
- * Inventory tables — docs/03 §4 "Catalog" (inventory, stock_movements)
+ * Inventory tables - docs/03 §4 "Catalog" (inventory, stock_movements)
  * and docs/03 §11 "Inventory / stock handling". The three CHECK
  * constraints on `inventory` are what make an oversell impossible even if
  * the application's conditional-UPDATE code (docs/03 §11) has a bug.

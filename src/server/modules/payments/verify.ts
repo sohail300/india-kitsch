@@ -24,13 +24,13 @@ export type VerifyPaymentResult =
     };
 
 /**
- * The Razorpay Checkout success handler's fast path (docs/06 §9 step 4) —
+ * The Razorpay Checkout success handler's fast path (docs/06 §9 step 4) -
  * a UX convenience only, so the customer sees confirmation immediately
  * instead of waiting on the webhook. Recomputes the HMAC signature,
  * independently fetches the payment from Razorpay's API (never trusts the
  * client's claim that it succeeded), and cross-checks amount/currency/order
  * linkage before calling the same `markOrderPaid` the webhook and
- * reconciler use — **the webhook remains the source of truth** (docs/06 §9
+ * reconciler use - **the webhook remains the source of truth** (docs/06 §9
  * step 5); this path existing or failing changes nothing about whether the
  * order eventually gets marked paid.
  */

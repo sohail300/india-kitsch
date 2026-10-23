@@ -3,8 +3,19 @@
 #   npx wrangler secret put SUPABASE_URL
 #   npx wrangler secret put SUPABASE_ANON_KEY
 #   npx wrangler secret put CRON_SECRET
+#   npx wrangler secret put RESEND_API_KEY
+#   npx wrangler secret put ALERT_EMAIL_FROM
+#   npx wrangler secret put ALERT_EMAIL_TO
 SUPABASE_URL="https://xxxx.supabase.co"
 SUPABASE_ANON_KEY=""
 # Same value as the Next app's CRON_SECRET (Vercel env) — authenticates the
 # 10-minute reconcile call (docs/06 §9 step 7).
 CRON_SECRET=""
+# Same Resend account as the Next app's RESEND_API_KEY — a separate secret
+# here since this Worker can't read the app's env (docs/08 §18).
+RESEND_API_KEY=""
+# Sender for the daily-check failure alert — same convention as the Next
+# app's SUPPORT_EMAIL_FROM, e.g. "India Kitsch Alerts <support@yourdomain>".
+ALERT_EMAIL_FROM=""
+# Same real, owner-monitored inbox as the Next app's CONTACT_INBOX_EMAIL.
+ALERT_EMAIL_TO=""

@@ -14,7 +14,7 @@ const client = postgres(env.DATABASE_URL, { prepare: false });
 
 export const db = drizzle(client, { schema });
 
-/** The type of `db` itself — accepted by read-only query functions as an optional, injectable handle (see `DbOrTx` below). */
+/** The type of `db` itself - accepted by read-only query functions as an optional, injectable handle (see `DbOrTx` below). */
 export type Db = typeof db;
 
 /**

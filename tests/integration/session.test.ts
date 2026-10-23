@@ -83,6 +83,25 @@ describe("requireUser", () => {
   });
 });
 
+describe("sign-in for disabled accounts", () => {
+  it("rejects signing in to a disabled account, and allows it again once re-enabled", async () => {
+    // DISABLED_EMAIL was disabled in beforeAll, after its first sign-in.
+    await expect(
+      auth.api.signInEmail({ body: { email: DISABLED_EMAIL, password: PASSWORD } }),
+    ).rejects.toMatchObject({ body: { code: "ACCOUNT_DISABLED" } });
+
+    await db.update(userTable).set({ disabled: false }).where(eq(userTable.email, DISABLED_EMAIL));
+    try {
+      const result = await auth.api.signInEmail({
+        body: { email: DISABLED_EMAIL, password: PASSWORD },
+      });
+      expect(result.user.email).toBe(DISABLED_EMAIL);
+    } finally {
+      await db.update(userTable).set({ disabled: true }).where(eq(userTable.email, DISABLED_EMAIL));
+    }
+  });
+});
+
 describe("requireAdmin", () => {
   it("throws UnauthorizedError with no session at all (not ForbiddenError)", async () => {
     await expect(requireAdmin(new Headers())).rejects.toThrow(UnauthorizedError);

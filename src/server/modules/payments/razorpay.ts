@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "@/server/lib/env";
 
 /**
- * A thin, hand-written Razorpay REST client rather than the official SDK —
+ * A thin, hand-written Razorpay REST client rather than the official SDK -
  * `fetchImpl` is injectable so tests can intercept every call instead of
  * hitting the real API (docs/09 §20: "Razorpay: HTTP layer mocked with
  * recorded fixtures in CI"), and INR's smallest unit (paise) already
@@ -105,7 +105,7 @@ export class RazorpayClient {
     return this.request<RazorpayPayment>(`/payments/${paymentId}`);
   }
 
-  /** Every payment attempt against a Razorpay order — the reconciler's "ask Razorpay whether a captured payment exists" step (docs/06 §9 step 7). */
+  /** Every payment attempt against a Razorpay order - the reconciler's "ask Razorpay whether a captured payment exists" step (docs/06 §9 step 7). */
   async fetchOrderPayments(razorpayOrderId: string): Promise<{ items: RazorpayPayment[] }> {
     return this.request<{ items: RazorpayPayment[] }>(`/orders/${razorpayOrderId}/payments`);
   }
@@ -122,7 +122,7 @@ export class RazorpayClient {
   }
 }
 
-/** The real client, built from env vars — pass `fetchImpl` only in tests. */
+/** The real client, built from env vars - pass `fetchImpl` only in tests. */
 export function createRazorpayClient(fetchImpl?: typeof fetch): RazorpayClient {
   return new RazorpayClient({
     keyId: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -142,7 +142,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
 }
 
-/** docs/06 §9 step 4: the client-side verify fast-path's signature — HMAC_SHA256(orderId + "|" + paymentId, KEY_SECRET). */
+/** docs/06 §9 step 4: the client-side verify fast-path's signature - HMAC_SHA256(orderId + "|" + paymentId, KEY_SECRET). */
 export function verifyPaymentSignature(
   input: { razorpayOrderId: string; razorpayPaymentId: string; signature: string },
   keySecret: string,
@@ -151,7 +151,7 @@ export function verifyPaymentSignature(
   return constantTimeEqual(expected, input.signature);
 }
 
-/** docs/06 §9 step 5: HMAC-SHA256 of the *raw* webhook body — must be computed on the exact bytes received, before any JSON parsing. */
+/** docs/06 §9 step 5: HMAC-SHA256 of the *raw* webhook body - must be computed on the exact bytes received, before any JSON parsing. */
 export function verifyWebhookSignature(
   input: { rawBody: string; signature: string },
   webhookSecret: string,

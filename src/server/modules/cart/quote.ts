@@ -10,7 +10,7 @@ import { getShippingSettings } from "@/server/modules/settings/queries";
 import { validateCoupon } from "@/server/modules/coupons/validate";
 import type { CouponValidationResult } from "@/server/modules/coupons/validate";
 
-/** Cart lines only ever carry `{variantId, qty}` client-side (docs/05 §8) — quoteCart resolves everything else fresh, every time. */
+/** Cart lines only ever carry `{variantId, qty}` client-side (docs/05 §8) - quoteCart resolves everything else fresh, every time. */
 export interface CartLineInput {
   variantId: string;
   quantity: number;
@@ -41,7 +41,7 @@ export interface QuotedLine {
   quantity: number;
   available: number;
   status: QuotedLineStatus;
-  /** false for unavailable/unpurchasable lines — excluded from subtotal/total, still shown so the UI can prompt removal. */
+  /** false for unavailable/unpurchasable lines - excluded from subtotal/total, still shown so the UI can prompt removal. */
   includedInTotals: boolean;
   lineSubtotalPaise: number;
   lineDiscountPaise: number;
@@ -86,7 +86,7 @@ function resolveImageKey(variant: {
  * The advisory cart quote (docs/05 §8): authoritative name/price/image/
  * availability/totals for whatever the client's localStorage cart claims to
  * hold. Never throws for cart-shaped problems (missing/archived/out-of-
- * stock items) — it flags and clamps instead; `createOrder` (Phase 6)
+ * stock items) - it flags and clamps instead; `createOrder` (Phase 6)
  * re-validates and re-computes everything from scratch, this is advisory
  * only (docs/05 §8: "the quote is advisory").
  */
@@ -120,7 +120,7 @@ export async function quoteCart(
       where: inArray(productVariants.id, variantIds),
       with: {
         images: true,
-        product: { with: { images: true } },
+        product: { with: { images: true, category: { columns: { isActive: true } } } },
       },
     }),
     getAvailability(variantIds, dbHandle),
@@ -140,7 +140,11 @@ export async function quoteCart(
 
     const stock = availability.get(variantId);
     const available = stock?.available ?? 0;
-    const unpurchasable = !variant.isActive || variant.product.status !== "active";
+    // A product in a hidden category can't be bought either (catalog/queries.ts).
+    const unpurchasable =
+      !variant.isActive ||
+      variant.product.status !== "active" ||
+      !variant.product.category.isActive;
 
     let quantity = requestedQuantity;
     let status: QuotedLineStatus = "ok";

@@ -25,16 +25,16 @@ function fail(code: CouponValidationFailureCode, message: string): CouponValidat
 }
 
 export interface ValidateCouponContext {
-  /** Required only when the coupon has a perUserLimit — site-wide there's no guest checkout, so a coupon preview without a signed-in user can't check it. */
+  /** Required only when the coupon has a perUserLimit - site-wide there's no guest checkout, so a coupon preview without a signed-in user can't check it. */
   userId?: string;
   subtotalPaise: number;
 }
 
 /**
- * A read-only, non-atomic eligibility check — used for the checkout page's
+ * A read-only, non-atomic eligibility check - used for the checkout page's
  * live coupon preview (docs/06 §9 step 1: "server-validated preview
  * only"). It never throws for an ordinary invalid-coupon case, only for a
- * caller bug; and it never mutates `usedCount` — that's the atomic,
+ * caller bug; and it never mutates `usedCount` - that's the atomic,
  * race-safe job of coupons/service.ts's `redeemCoupon`, called at actual
  * order creation (Phase 6), which re-validates everything itself.
  */

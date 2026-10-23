@@ -44,7 +44,7 @@ export const updateCouponInputSchema = z
     maxUses: z.number().int().positive().nullable().optional(),
     perUserLimit: z.number().int().positive().nullable().optional(),
     isActive: z.boolean().optional(),
-    // A coupon's type/value are deliberately not editable once created —
+    // A coupon's type/value are deliberately not editable once created -
     // change the discount by deactivating and creating a new code instead,
     // so a coupon already applied to a pending order never silently changes value.
   })

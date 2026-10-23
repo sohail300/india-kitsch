@@ -5,6 +5,8 @@ const slugSchema = z
   .trim()
   .min(1)
   .max(200)
+  // Lowercased first, so "Summer-Kurta" is accepted as "summer-kurta" rather than rejected.
+  .toLowerCase()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug must be lowercase letters, numbers and hyphens only");
 
 export const createCategoryInputSchema = z.object({
@@ -12,8 +14,6 @@ export const createCategoryInputSchema = z.object({
   slug: slugSchema,
   description: z.string().trim().max(2000).optional(),
   imageKey: z.string().trim().min(1).optional(),
-  /** 1-level nesting only (docs/03 §4) — a category whose own parentId is non-null can't be used as a parent. Enforced by the service, not the DB. */
-  parentId: z.string().min(1).optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
 });
@@ -58,12 +58,29 @@ export const generateVariantMatrixInputSchema = z.object({
   productId: z.string().min(1),
   sizes: z.array(z.string().trim().min(1).max(20)).min(1).max(20),
   colors: z.array(colorSchema).min(1).max(20),
+  /** Optional — defaults to the product's slug, so owners never have to invent SKUs. */
   skuPrefix: z
     .string()
     .trim()
     .min(1)
-    .max(20)
-    .regex(/^[A-Za-z0-9-]+$/, "skuPrefix must be letters, numbers and hyphens only"),
+    .max(40)
+    .regex(/^[A-Za-z0-9-]+$/, "skuPrefix must be letters, numbers and hyphens only")
+    .optional(),
+  /**
+   * Stock each new size × colour starts with (missing = 0). Entered while
+   * creating the units — the one place outside Inventory that sets a
+   * quantity (.impeccable.md, "One place per job").
+   */
+  startingStock: z
+    .array(
+      z.object({
+        size: z.string().trim().min(1).max(20),
+        color: z.string().trim().min(1).max(40),
+        quantity: z.number().int().min(0).max(100_000),
+      }),
+    )
+    .max(400)
+    .optional(),
 });
 export type GenerateVariantMatrixInput = z.infer<typeof generateVariantMatrixInputSchema>;
 
@@ -72,3 +89,19 @@ export const reorderImagesInputSchema = z.object({
   imageIdsInOrder: z.array(z.string().min(1)).min(1).max(100),
 });
 export type ReorderImagesInput = z.infer<typeof reorderImagesInputSchema>;
+
+/**
+ * Per-variant price override and active toggle (docs/07 §13 Products:
+ * "per-variant price/stock") - sku/size/color stay immutable once created
+ * (identity, `unique(productId, size, color)`); stock itself is
+ * `inventory/admin.ts`'s `adjustStock`, not this. `pricePaise`/`mrpPaise`
+ * are nullable so an admin can clear an override back to "inherit the
+ * product's price" (docs/03 §4 design note on `product_variants.pricePaise`).
+ */
+export const updateVariantInputSchema = z.object({
+  pricePaise: z.number().int().positive().nullable().optional(),
+  mrpPaise: z.number().int().positive().nullable().optional(),
+  weightGrams: z.number().int().positive().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateVariantInput = z.infer<typeof updateVariantInputSchema>;

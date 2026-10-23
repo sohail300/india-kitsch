@@ -5,12 +5,14 @@ import type { Db, Tx } from "@/server/db/client";
 import { storeSettings } from "@/server/db/schema";
 import { writeAuditLog } from "@/server/modules/admin/audit";
 import type { AdminMutationResult } from "@/server/modules/admin/types";
-import type { ShippingSettingsValue, StoreInfoValue } from "./schemas";
+import type { CatalogSettingsValue, ShippingSettingsValue, StoreInfoValue } from "./schemas";
 import {
+  CATALOG_SETTINGS_KEY,
+  catalogSettingsSchema,
   SHIPPING_SETTINGS_KEY,
   STORE_INFO_SETTINGS_KEY,
   shippingSettingsSchema,
-  storeInfoSchema,
+  storeInfoInputSchema,
 } from "./schemas";
 
 async function upsertSetting(
@@ -56,9 +58,22 @@ export async function updateStoreInfo(
   adminUserId: string,
   dbHandle: Db = db,
 ): Promise<AdminMutationResult<StoreInfoValue>> {
-  const input = storeInfoSchema.parse(rawInput);
+  // The stricter write-time rules (GSTIN/phone/pincode/social formats).
+  const input = storeInfoInputSchema.parse(rawInput);
   return dbHandle.transaction(async (tx) => {
     await upsertSetting(tx, STORE_INFO_SETTINGS_KEY, input, adminUserId);
+    return { result: input, revalidateTags: [] };
+  });
+}
+
+export async function updateCatalogSettings(
+  rawInput: unknown,
+  adminUserId: string,
+  dbHandle: Db = db,
+): Promise<AdminMutationResult<CatalogSettingsValue>> {
+  const input = catalogSettingsSchema.parse(rawInput);
+  return dbHandle.transaction(async (tx) => {
+    await upsertSetting(tx, CATALOG_SETTINGS_KEY, input, adminUserId);
     return { result: input, revalidateTags: [] };
   });
 }

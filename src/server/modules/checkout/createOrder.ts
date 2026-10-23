@@ -16,7 +16,7 @@ import type { RazorpayClient } from "@/server/modules/payments/razorpay";
 import { createOrderInputSchema } from "./schemas";
 
 const RESERVATION_HOLD_MINUTES = 5;
-/** Postgres's unique_violation SQLSTATE — see the idempotency-race handling below. */
+/** Postgres's unique_violation SQLSTATE - see the idempotency-race handling below. */
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 
 export interface CreateOrderContext {
@@ -73,11 +73,11 @@ function isUniqueViolation(error: unknown): boolean {
 
 /**
  * The checkout Server Action's service layer (docs/06 §9 step 2). No
- * prices or totals are trusted from the client — everything is recomputed
+ * prices or totals are trusted from the client - everything is recomputed
  * from `quoteCart` (reused, but treated strictly here: any line that isn't
  * exactly `"ok"` blocks the whole order rather than silently clamping, the
  * way the advisory cart page would). The Razorpay order is created first,
- * *outside* any DB transaction — a failure there leaves nothing to roll
+ * *outside* any DB transaction - a failure there leaves nothing to roll
  * back locally, and an orphan unpaid Razorpay order is harmless. Reserving
  * stock, redeeming the coupon and writing the order all happen in one
  * transaction after that.
@@ -105,7 +105,7 @@ export async function createOrder(
   }
 
   // Must happen before quoteCart's availability read, not inside the final
-  // reservation transaction — see releaseExpiredReservationsForVariants's
+  // reservation transaction - see releaseExpiredReservationsForVariants's
   // own comment for why.
   await releaseExpiredReservationsForVariants(
     input.lines.map((l) => l.variantId),
@@ -128,7 +128,7 @@ export async function createOrder(
     return {
       ok: false,
       code: "cart_changed",
-      message: "Some items in your cart changed — please review your cart before trying again",
+      message: "Some items in your cart changed - please review your cart before trying again",
       blockers,
     };
   }
@@ -147,13 +147,13 @@ export async function createOrder(
     return {
       ok: false,
       code: "price_changed",
-      message: "The order total changed since you last saw it — please review before paying",
+      message: "The order total changed since you last saw it - please review before paying",
       totalPaise: quote.totalPaise,
     };
   }
 
   // Generated before the Razorpay call so the Razorpay `receipt` maps 1:1
-  // to this order's own id — useful for reconciliation either direction.
+  // to this order's own id - useful for reconciliation either direction.
   const orderId = createId();
   const razorpayOrder = await razorpay.createOrder({
     amountPaise: quote.totalPaise,
@@ -164,7 +164,7 @@ export async function createOrder(
   try {
     const order = await dbHandle.transaction(async (tx) => {
       // orders/order_items/payments/order_events go in first (docs/06 §9
-      // step 2iv's own listed order) — stock_movements.order_id is a hard
+      // step 2iv's own listed order) - stock_movements.order_id is a hard
       // FK to orders.id, so reserveStock/redeemCoupon (which both write
       // movement/redemption rows referencing this order) must run after
       // the order itself exists, not before.
@@ -266,7 +266,7 @@ export async function createOrder(
     }
     // A concurrent double-click can lose the initial idempotency-key check
     // above and then collide on orders' unique (userId, idempotencyKey)
-    // constraint instead — the other request is the real winner, so return
+    // constraint instead - the other request is the real winner, so return
     // its order rather than surfacing a confusing DB error to this one.
     if (isUniqueViolation(error)) {
       const winner = await getOrderByIdempotencyKey(context.userId, input.idempotencyKey, dbHandle);

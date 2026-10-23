@@ -5,7 +5,7 @@ import { inventory, stockMovements } from "@/server/db/schema";
 import { OutOfStockError } from "@/server/lib/errors";
 
 /**
- * Stock reservation — docs/03 §11. Both functions take the *caller's*
+ * Stock reservation - docs/03 §11. Both functions take the *caller's*
  * transaction rather than opening their own, so they compose into a larger
  * transaction (e.g. checkout's order-creation transaction reserves stock,
  * inserts the order and items, and applies a coupon all atomically).
@@ -46,12 +46,12 @@ function assertPositiveQuantity(line: StockLine, fn: string): void {
  * right now. Under Postgres's default READ COMMITTED, a second concurrent
  * UPDATE on the same row waits for the first's row lock and then
  * re-evaluates its own WHERE clause against the post-update row, so two
- * buyers of the last unit can never both succeed — no application-level
+ * buyers of the last unit can never both succeed - no application-level
  * locking needed.
  *
  * Throws OutOfStockError on the first line that can't be reserved, which
  * rolls back the whole transaction (including any earlier lines this same
- * call already reserved) — the caller decides what to do next, this
+ * call already reserved) - the caller decides what to do next, this
  * function never partially reserves a multi-line cart.
  */
 export async function reserveStock(
@@ -115,7 +115,7 @@ export async function releaseStock(
 
     if (updated.length === 0) {
       throw new Error(
-        `releaseStock: cannot release ${line.quantity} for variant ${line.variantId} — reserved is lower than that`,
+        `releaseStock: cannot release ${line.quantity} for variant ${line.variantId} - reserved is lower than that`,
       );
     }
 
@@ -133,7 +133,7 @@ export async function releaseStock(
  * Converts a reservation into a completed sale when payment succeeds
  * (docs/06 §9 step 6, inside `markOrderPaid`): both `onHand` and `reserved`
  * drop by the same amount, since the unit is now actually gone, not just
- * held. The `CHECK (reserved <= on_hand)` invariant holds throughout — this
+ * held. The `CHECK (reserved <= on_hand)` invariant holds throughout - this
  * is the one place both columns move together.
  */
 export async function sellReservedStock(
@@ -161,7 +161,7 @@ export async function sellReservedStock(
 
     if (updated.length === 0) {
       throw new Error(
-        `sellReservedStock: cannot sell ${line.quantity} for variant ${line.variantId} — reserved is lower than that`,
+        `sellReservedStock: cannot sell ${line.quantity} for variant ${line.variantId} - reserved is lower than that`,
       );
     }
 
@@ -176,7 +176,7 @@ export async function sellReservedStock(
 }
 
 /**
- * The inverse of `sellReservedStock` — a paid order gets admin-cancelled
+ * The inverse of `sellReservedStock` - a paid order gets admin-cancelled
  * (docs/06 §10: "paid/processing -> cancelled | admin | refund required,
  * restock"). Only `onHand` moves; the unit was already fully sold
  * (`reserved` was already decremented at sale time), so there's nothing

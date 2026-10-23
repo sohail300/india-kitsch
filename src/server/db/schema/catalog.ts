@@ -1,11 +1,10 @@
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, jsonb, text, timestamp, unique } from "drizzle-orm/pg-core";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { appSchema } from "./_shared";
 import { createId } from "@/server/lib/ids";
 
 /**
- * Catalog tables — docs/03 §4 "Catalog". See docs/07 §12 for how
+ * Catalog tables - docs/03 §4 "Catalog". See docs/07 §12 for how
  * `product_images.r2Key` relates to the actual R2 objects, and docs/05
  * §7 for the trigram search index on `products.name`, added as a
  * follow-up custom migration (not expressible cleanly through Drizzle's
@@ -15,26 +14,17 @@ import { createId } from "@/server/lib/ids";
 export const productStatusEnum = appSchema.enum("product_status", ["draft", "active", "archived"]);
 export const sizeChartUnitEnum = appSchema.enum("size_chart_unit", ["cm", "in"]);
 
-export const categories = appSchema.table(
-  "categories",
-  {
-    id: text("id").primaryKey().$defaultFn(createId),
-    // 1-level nesting in v1 (docs/03 §4) — a child's own parentId is
-    // always null, enforced in the service layer, not the DB.
-    parentId: text("parent_id").references((): AnyPgColumn => categories.id, {
-      onDelete: "set null",
-    }),
-    name: text("name").notNull(),
-    slug: text("slug").notNull().unique(),
-    description: text("description"),
-    imageKey: text("image_key"),
-    sortOrder: integer("sort_order").notNull().default(0),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [index("categories_parent_id_idx").on(table.parentId)],
-);
+export const categories = appSchema.table("categories", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  imageKey: text("image_key"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const sizeCharts = appSchema.table("size_charts", {
   id: text("id").primaryKey().$defaultFn(createId),
@@ -52,7 +42,7 @@ export const products = appSchema.table(
   {
     id: text("id").primaryKey().$defaultFn(createId),
     slug: text("slug").notNull().unique(),
-    // Plain text or sanitised markdown — never raw HTML (docs/04 §14).
+    // Plain text or sanitised markdown - never raw HTML (docs/04 §14).
     description: text("description"),
     name: text("name").notNull(),
     categoryId: text("category_id")
@@ -89,7 +79,7 @@ export const productVariants = appSchema.table(
     size: text("size").notNull(),
     color: text("color").notNull(),
     colorHex: text("color_hex"),
-    // Null means "use products.pricePaise" — see docs/03 §4 design note.
+    // Null means "use products.pricePaise" - see docs/03 §4 design note.
     pricePaise: integer("price_paise"),
     mrpPaise: integer("mrp_paise"),
     weightGrams: integer("weight_grams"),
@@ -109,7 +99,7 @@ export const productImages = appSchema.table(
     productId: text("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    // Color-specific images — null means "shown for every color".
+    // Color-specific images - null means "shown for every color".
     variantId: text("variant_id").references(() => productVariants.id, { onDelete: "cascade" }),
     r2Key: text("r2_key").notNull(),
     alt: text("alt").notNull(),
@@ -124,13 +114,7 @@ export const productImages = appSchema.table(
   ],
 );
 
-export const categoriesRelations = relations(categories, ({ one, many }) => ({
-  parent: one(categories, {
-    fields: [categories.parentId],
-    references: [categories.id],
-    relationName: "categoryParent",
-  }),
-  children: many(categories, { relationName: "categoryParent" }),
+export const categoriesRelations = relations(categories, ({ many }) => ({
   products: many(products),
 }));
 

@@ -6,7 +6,7 @@ import { auth } from "./auth";
  * lives in the Data Access Layer, not in proxy.ts or layouts... requireUser()
  * / requireAdmin() are called at the top of every protected page, Server
  * Action and Route Handler." No other code should call `auth.api.getSession`
- * directly — go through these so the disabled-account and role checks are
+ * directly - go through these so the disabled-account and role checks are
  * never accidentally skipped.
  */
 
@@ -44,7 +44,7 @@ export async function requireUser(headers: Headers): Promise<Session> {
 
 /**
  * Throws UnauthorizedError/ForbiddenError unless the caller is a signed-in,
- * non-disabled admin. Every admin route/action/page must call this — the
+ * non-disabled admin. Every admin route/action/page must call this - the
  * role check happens here, once, never by trusting anything the client sent
  * (docs/04 §5, §14).
  */

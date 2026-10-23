@@ -8,7 +8,7 @@ import { z } from "zod";
  *
  * `DATABASE_URL_SESSION`, `SUPABASE_URL`/`SUPABASE_ANON_KEY`, and the
  * backup-related `B2_*`/`BACKUP_AGE_PUBLIC_KEY`/`SENTRY_AUTH_TOKEN` vars
- * are deliberately NOT here — they belong to CI or the Cloudflare cron
+ * are deliberately NOT here - they belong to CI or the Cloudflare cron
  * Worker, never to this app. See docs/08-infrastructure-backups-ops.md §19.
  *
  * A handful of fields below are `.optional()` even though docs/08 §19
@@ -16,26 +16,26 @@ import { z } from "zod";
  * needs them hasn't been built yet (this file requires only what the
  * *currently built* app actually needs, matching docs/10's backend-first
  * phase order). Each one's comment says which phase tightens it back to
- * required — do that as part of building that phase, not before.
+ * required - do that as part of building that phase, not before.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
-  // Database — Supabase, transaction pooler (prepare: false; see docs/03 §11, docs/01 §2)
+  // Database - Supabase, transaction pooler (prepare: false; see docs/03 §11, docs/01 §2)
   DATABASE_URL: z.url(),
 
   // Auth (Better Auth)
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url(),
-  // Google sign-in is configured only if both are present (see auth.ts) —
+  // Google sign-in is configured only if both are present (see auth.ts) -
   // required once Phase 3 (auth backend) actually wires up Google login.
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
 
-  // Payments (Razorpay) — Phase 6 built checkout/payments, so the order-creation
+  // Payments (Razorpay) - Phase 6 built checkout/payments, so the order-creation
   // credentials are required now. RAZORPAY_WEBHOOK_SECRET stays optional a
   // little longer: no Razorpay webhook is configured yet (owner hasn't set
-  // one up), so there's no value to put here yet — tighten it the moment
+  // one up), so there's no value to put here yet - tighten it the moment
   // one exists, since the webhook route is the payment source of truth
   // (docs/06 §9 step 5) and must never run unverified in production.
   RAZORPAY_KEY_SECRET: z.string().min(1),
@@ -45,18 +45,21 @@ const envSchema = z.object({
   // Site / public config
   NEXT_PUBLIC_SITE_URL: z.url(),
   NEXT_PUBLIC_IMAGE_BASE_URL: z.url(),
-  // Turnstile — required once Phase 3 wires up register/contact-form rate limiting.
+  // Turnstile - required once Phase 3 wires up register/contact-form rate limiting.
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   TURNSTILE_SECRET: z.string().min(1).optional(),
 
-  // Email (Resend) — Phase 8 built the email/notifications backend, so this
+  // Email (Resend) - Phase 8 built the email/notifications backend, so this
   // is required now. Note `lib/email.ts` deliberately does NOT import this
   // guarded `env` module (it reads `process.env.RESEND_API_KEY` directly)
   // since it's imported by the unguarded `server/auth/config.ts`, for
-  // scripts/create-admin.ts under plain tsx — this check is still real,
+  // scripts/create-admin.ts under plain tsx - this check is still real,
   // it just runs at the app's own boot time, not inside email.ts itself.
   RESEND_API_KEY: z.string().min(1),
   EMAIL_FROM: z.email(),
+  // Account/security emails (verify, reset password) send from this address
+  // instead of EMAIL_FROM - see lib/email.ts's authEmailSender.
+  SUPPORT_EMAIL_FROM: z.email(),
   CONTACT_INBOX_EMAIL: z.email(),
 
   // Files (Cloudflare R2)
@@ -68,7 +71,7 @@ const envSchema = z.object({
   // Cron (shared secret with the Cloudflare cron Worker)
   CRON_SECRET: z.string().min(16),
 
-  // Monitoring — optional until Sentry is wired up in Phase 7
+  // Monitoring - optional until Sentry is wired up in Phase 7
   SENTRY_DSN: z.url().optional(),
 });
 
@@ -76,7 +79,7 @@ export type Env = z.infer<typeof envSchema>;
 
 /**
  * An unset env var and one left as `KEY=""` in `.env.local`/`.env.example`
- * should both count as "not configured yet" — without this, `.optional()`
+ * should both count as "not configured yet" - without this, `.optional()`
  * only excuses a truly missing key, and an empty string still fails a
  * `.min(1)` check with a confusing error.
  */
@@ -95,7 +98,7 @@ function loadEnv(): Env {
     const fieldErrors = z.flattenError(parsed.error).fieldErrors;
     console.error("Invalid environment variables:", fieldErrors);
     throw new Error(
-      "Invalid environment variables — see the list above, and check .env.local against .env.example.",
+      "Invalid environment variables - see the list above, and check .env.local against .env.example.",
     );
   }
 

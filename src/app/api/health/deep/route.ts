@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
 
 /**
- * Runs a real query through the transaction pooler — for manual checks
+ * Runs a real query through the transaction pooler - for manual checks
  * or infrequent polling only (docs/08 §21 says "every ~5 minutes" at
  * most), never the primary uptime check (that's the DB-free
  * /api/health). A database query naturally keeps this out of the

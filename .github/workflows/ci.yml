@@ -29,6 +29,10 @@ env:
   NEXT_PUBLIC_SITE_URL: http://localhost:3000
   NEXT_PUBLIC_IMAGE_BASE_URL: http://localhost:3000/images
   EMAIL_FROM: ${{ secrets.CI_EMAIL_FROM || 'orders@example.com' }}
+  # No test sends through authEmailSender against a real inbox (unlike
+  # EMAIL_FROM/emailSender via notifications.test.ts), so this only needs
+  # to satisfy env.ts's z.email() check — a plain placeholder is fine.
+  SUPPORT_EMAIL_FROM: support@example.com
   CONTACT_INBOX_EMAIL: hello@example.com
   R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || 'ci-placeholder' }}
   R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID || 'ci-placeholder' }}

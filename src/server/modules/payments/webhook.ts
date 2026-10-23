@@ -13,7 +13,7 @@ import { settleCapturedPayment } from "./settle";
 
 /**
  * Minimal shape of the fields this handler actually reads from Razorpay's
- * webhook payload — not the full API surface, just what dispatch needs.
+ * webhook payload - not the full API surface, just what dispatch needs.
  */
 interface RazorpayWebhookEvent {
   event: string;
@@ -39,7 +39,7 @@ export interface WebhookInput {
   rawBody: string;
   /** The `X-Razorpay-Signature` header. */
   signature: string | null;
-  /** The `X-Razorpay-Event-Id` header — the webhook_events idempotency key (docs/06 §9 step 5). */
+  /** The `X-Razorpay-Event-Id` header - the webhook_events idempotency key (docs/06 §9 step 5). */
   eventId: string | null;
 }
 
@@ -49,7 +49,7 @@ export interface WebhookResult {
 }
 
 /**
- * The webhook is the payment source of truth (docs/06 §9 step 5) — this
+ * The webhook is the payment source of truth (docs/06 §9 step 5) - this
  * function is exercised directly in tests with a hand-built payload/
  * signature, and the route handler (app/api/webhooks/razorpay/route.ts)
  * only does the HTTP plumbing (reading the raw body, extracting headers,
@@ -126,7 +126,7 @@ async function dispatch(
  * Handles both the ordinary case (order still `pending_payment`) and the
  * late-payment case (order already auto-cancelled for expiry) via the same
  * `settleCapturedPayment` the reconciler uses (docs/12 "One doc gap to
- * close before Phase 6 code") — a late payer gets reinstated or refunded
+ * close before Phase 6 code") - a late payer gets reinstated or refunded
  * as soon as this webhook arrives, not up to 10 minutes later.
  */
 async function handlePaymentCaptured(
@@ -181,7 +181,7 @@ async function handlePaymentFailed(event: RazorpayWebhookEvent, dbHandle: Db): P
   const order = await getOrderByRazorpayOrderId(payment.order_id, dbHandle);
   if (!order) return "order_not_found";
 
-  // Records the attempt — the order stays pending_payment, the customer
+  // Records the attempt - the order stays pending_payment, the customer
   // may retry on the same Razorpay order (docs/06 §9 step 5).
   await dbHandle.insert(payments).values({
     orderId: order.id,

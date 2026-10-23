@@ -14,7 +14,7 @@ export interface VariantAvailability {
 /**
  * Live per-variant availability, keyed by variantId. Used to decorate
  * otherwise-cached catalog reads with fresh stock info (docs/05 §7:
- * "cached HTML never lies about stock") — never itself cached.
+ * "cached HTML never lies about stock") - never itself cached.
  *
  * `dbHandle` defaults to the real `db` singleton; integration tests pass a
  * handle bound to TEST_DATABASE_URL instead (docs/09 §20).

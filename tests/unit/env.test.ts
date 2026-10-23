@@ -15,6 +15,7 @@ const VALID_ENV = {
   TURNSTILE_SECRET: "turnstile-secret",
   RESEND_API_KEY: "re_xxx",
   EMAIL_FROM: "orders@example.com",
+  SUPPORT_EMAIL_FROM: "support@example.com",
   CONTACT_INBOX_EMAIL: "hello@example.com",
   R2_ACCOUNT_ID: "r2-account-id",
   R2_ACCESS_KEY_ID: "r2-access-key",
@@ -78,6 +79,11 @@ describe("env", () => {
 
   it("rejects RESEND_API_KEY left empty — required since Phase 8", async () => {
     stubValidEnv({ RESEND_API_KEY: "" });
+    await expect(import("@/server/lib/env")).rejects.toThrow(/Invalid environment variables/);
+  });
+
+  it("rejects SUPPORT_EMAIL_FROM left empty — required since auth emails send from it", async () => {
+    stubValidEnv({ SUPPORT_EMAIL_FROM: "" });
     await expect(import("@/server/lib/env")).rejects.toThrow(/Invalid environment variables/);
   });
 

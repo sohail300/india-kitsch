@@ -2,7 +2,7 @@ import "server-only";
 
 /**
  * All money in this codebase is an integer number of paise (1 rupee = 100
- * paise) — never a float. See docs/01 §1 ("Money = integer paise, never
+ * paise) - never a float. See docs/01 §1 ("Money = integer paise, never
  * floats") and docs/03 §4 (columns are `integer`, max ~₹2.1 crore/value).
  *
  * This module is the one place that knows how to move between "paise" (the
@@ -33,7 +33,7 @@ export function toPaise(rupees: number): number {
   return Math.round(rupees * 100);
 }
 
-/** Converts paise to a rupee float — for calculations only, never store the result. */
+/** Converts paise to a rupee float - for calculations only, never store the result. */
 export function toRupees(paise: number): number {
   assertPaise(paise);
   return paise / 100;
@@ -60,7 +60,7 @@ export function sumPaise(amounts: number[]): number {
 /**
  * Applies a rate given in basis points (1 bps = 0.01%) to a paise amount,
  * rounding to the nearest paisa. Used for GST rates (`gstRateBps`) and
- * percent coupons (`valueBps`) — see docs/03 §4.
+ * percent coupons (`valueBps`) - see docs/03 §4.
  */
 export function percentOfPaise(amountPaise: number, bps: number): number {
   assertPaise(amountPaise);

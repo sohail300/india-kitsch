@@ -19,7 +19,7 @@ import type { R2ObjectHead } from "./r2";
 /**
  * The direct-to-R2 upload flow (docs/07 §12): the admin UI resizes/
  * compresses to WebP in the browser (so `width`/`height` come from the
- * client at commit time — this server never decodes image bytes), then
+ * client at commit time - this server never decodes image bytes), then
  * sign -> browser PUT -> commit, with commit doing the real server-side
  * verification a presigned URL alone can't guarantee.
  */
@@ -84,7 +84,7 @@ export const commitUploadInputSchema = z.object({
   variantId: z.string().min(1).optional(),
   key: z.string().min(1),
   alt: z.string().trim().min(1).max(300),
-  /** Client-supplied — the browser already resized/compressed the image and knows its real dimensions. */
+  /** Client-supplied - the browser already resized/compressed the image and knows its real dimensions. */
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   sortOrder: z.number().int().nonnegative().default(0),
@@ -124,7 +124,7 @@ function isAllowedContentType(value: string | undefined): value is AllowedImageC
  * `POST /api/admin/uploads/commit` (docs/07 §12 step 4): HEAD for size/
  * type, range-read the first bytes to verify magic bytes, then insert the
  * `product_images` row. Any verification failure deletes the object from
- * R2 rather than leaving an unreferenced upload behind — no need for the
+ * R2 rather than leaving an unreferenced upload behind - no need for the
  * weekly orphan sweep (docs/07 §12 step 5, not yet built) to clean up a
  * failure this function already knows about.
  */
@@ -136,7 +136,7 @@ export async function commitProductImageUpload(
 ): Promise<CommitUploadResult> {
   const input: CommitUploadInput = commitUploadInputSchema.parse(rawInput);
 
-  // A signed URL only ever targets products/{productId}/... — a key for a
+  // A signed URL only ever targets products/{productId}/... - a key for a
   // different product is either a bug or someone probing another product's namespace.
   if (!input.key.startsWith(`products/${input.productId}/`)) {
     return { ok: false, code: "not_found", message: "Upload key does not belong to this product" };

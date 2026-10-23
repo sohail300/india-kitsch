@@ -19,7 +19,7 @@ export interface RedeemCouponInput {
  * a plain UPDATE) would leave open between two checkouts racing for the
  * last use of a limited coupon. Must run inside the caller's order-creation
  * transaction (Phase 6) so a later failure (e.g. out of stock) rolls this
- * back too — mirrors inventory/service.ts's reserveStock exactly.
+ * back too - mirrors inventory/service.ts's reserveStock exactly.
  */
 export async function redeemCoupon(tx: Tx, input: RedeemCouponInput): Promise<void> {
   const updated = await tx
@@ -48,9 +48,9 @@ export async function redeemCoupon(tx: Tx, input: RedeemCouponInput): Promise<vo
 /**
  * Undoes `redeemCoupon` when its order is cancelled (docs/06 §10: "coupon
  * usage returned"). Deletes the `coupon_redemptions` row too, not just the
- * counter — otherwise a per-user-limited coupon would stay blocked for a
+ * counter - otherwise a per-user-limited coupon would stay blocked for a
  * customer whose order never actually went through. A no-op (not an error)
- * if no redemption exists for this order — cancelling a coupon-less order,
+ * if no redemption exists for this order - cancelling a coupon-less order,
  * or double-cancelling, must stay safe to call.
  */
 export async function releaseCoupon(tx: Tx, orderId: string): Promise<void> {

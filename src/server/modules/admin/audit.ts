@@ -13,7 +13,7 @@ export interface AuditLogInput {
 
 /**
  * An `audit_log` row per admin mutation (docs/07 §13). Always called inside
- * the same transaction as the mutation it's recording, never after — an
+ * the same transaction as the mutation it's recording, never after - an
  * audit entry that describes a change which didn't actually commit would
  * be worse than no entry at all.
  */

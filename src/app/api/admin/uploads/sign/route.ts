@@ -3,7 +3,7 @@ import { requireAdmin } from "@/server/auth/session";
 import { NotFoundError } from "@/server/lib/errors";
 import { signProductImageUpload } from "@/server/modules/media/uploads";
 
-/** docs/07 §12 step 2 — `requireAdmin()`, then a presigned PUT URL for the browser to upload directly to R2. */
+/** docs/07 §12 step 2 - `requireAdmin()`, then a presigned PUT URL for the browser to upload directly to R2. */
 export async function POST(request: Request) {
   try {
     await requireAdmin(request.headers);

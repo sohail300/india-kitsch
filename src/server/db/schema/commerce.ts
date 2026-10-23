@@ -6,7 +6,7 @@ import { productVariants } from "./catalog";
 import { createId } from "@/server/lib/ids";
 
 /**
- * Commerce tables — docs/03 §4 "Commerce". Order lifecycle states match
+ * Commerce tables - docs/03 §4 "Commerce". Order lifecycle states match
  * docs/06 §10 exactly; the `orders.status` transition table there is the
  * only code allowed to change this column (docs/06 §10: "A single
  * `transition(order, to, actor)` function... No other code writes
@@ -46,7 +46,7 @@ export const addresses = appSchema.table(
     line1: text("line1").notNull(),
     line2: text("line2"),
     city: text("city").notNull(),
-    // GST state code — see docs/06 §9 tax.ts for CGST+SGST vs IGST.
+    // GST state code - see docs/06 §9 tax.ts for CGST+SGST vs IGST.
     state: text("state").notNull(),
     pincode: text("pincode").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
@@ -75,6 +75,11 @@ export const coupons = appSchema.table(
     usedCount: integer("used_count").notNull().default(0),
     perUserLimit: integer("per_user_limit"),
     isActive: boolean("is_active").notNull().default(true),
+    // Nullable: coupons seeded outside the admin UI have no creator, and
+    // `set null` keeps a coupon alive if its creating admin is ever removed.
+    createdByAdminId: text("created_by_admin_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -103,7 +108,7 @@ export const couponRedemptions = appSchema.table("coupon_redemptions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Backs `orders.orderNumber` — displayed as `IK-1001` etc. (docs/03 §4).
+// Backs `orders.orderNumber` - displayed as `IK-1001` etc. (docs/03 §4).
 export const orderNumberSeq = appSchema.sequence("order_number_seq", {
   startWith: 1001,
   increment: 1,
@@ -130,7 +135,7 @@ export const orders = appSchema.table(
     refundedPaise: integer("refunded_paise").notNull().default(0),
     couponCode: text("coupon_code"),
 
-    // Shipping address snapshot (docs/03 §4) — never joined live to
+    // Shipping address snapshot (docs/03 §4) - never joined live to
     // `addresses`, so editing/deleting an address never changes history.
     shipFullName: text("ship_full_name").notNull(),
     shipPhone: text("ship_phone").notNull(),
@@ -178,11 +183,11 @@ export const orderItems = appSchema.table(
     orderId: text("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
-    // SET NULL, not cascade — a deleted/archived variant must never take
+    // SET NULL, not cascade - a deleted/archived variant must never take
     // its order history down with it (docs/03 §4).
     variantId: text("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
 
-    // Snapshots — order history never changes when the catalog does.
+    // Snapshots - order history never changes when the catalog does.
     productName: text("product_name").notNull(),
     sku: text("sku").notNull(),
     size: text("size").notNull(),
@@ -259,7 +264,7 @@ export const refunds = appSchema.table(
   (table) => [index("refunds_order_id_idx").on(table.orderId)],
 );
 
-// PK = the Razorpay event id itself — see docs/06 §9 step 5 (idempotency
+// PK = the Razorpay event id itself - see docs/06 §9 step 5 (idempotency
 // guard) and docs/03 §4 (rows older than 90 days pruned by the sweep job).
 export const webhookEvents = appSchema.table("webhook_events", {
   id: text("id").primaryKey(),

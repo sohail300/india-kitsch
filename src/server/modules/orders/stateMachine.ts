@@ -9,7 +9,7 @@ export type OrderStatus = (typeof orders.$inferSelect)["status"];
 /**
  * The full legal-transition table (docs/06 §10). One edge is not in the
  * printed diagram but is real: `cancelled -> paid`, used only by the
- * reconciler's late-payment path (docs/06 §9 step 7) — a payment that
+ * reconciler's late-payment path (docs/06 §9 step 7) - a payment that
  * completes *after* an order was already auto-cancelled for expiry.
  */
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -40,16 +40,16 @@ export type Order = typeof orders.$inferSelect;
 /**
  * The one function allowed to write `orders.status` (docs/06 §10). Two
  * distinct failure modes:
- *  - an illegal (from, to) pair throws `InvalidOrderTransitionError` — a
+ *  - an illegal (from, to) pair throws `InvalidOrderTransitionError` - a
  *    caller bug, checked before touching the DB;
  *  - a legal transition that loses the optimistic-concurrency race
  *    (`UPDATE ... WHERE id=:id AND status=:from`, someone else already
- *    changed it) returns `null` — not an error, the caller decides what
+ *    changed it) returns `null` - not an error, the caller decides what
  *    that means for them (a no-op for idempotent callers like
  *    `markOrderPaid`, a real conflict for others).
  *
  * Must run inside the caller's transaction, alongside whatever side effects
- * (stock release, coupon release, ...) that transition implies — this
+ * (stock release, coupon release, ...) that transition implies - this
  * function only owns the status column and the `order_events` audit row.
  */
 export async function transition(

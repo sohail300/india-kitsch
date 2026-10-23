@@ -14,7 +14,7 @@ export interface VariantDetail {
   colorHex: string | null;
   sku: string;
   isActive: boolean;
-  /** The variant's own price if set, else the product's — never null. */
+  /** The variant's own price if set, else the product's - never null. */
   effectivePricePaise: number;
   effectiveMrpPaise: number | null;
   available: number;
@@ -49,12 +49,12 @@ export interface ProductDetail {
     height: number;
     isPrimary: boolean;
   }[];
-  /** True if any active variant has stock available right now — the PDP still streams live per-variant numbers separately (docs/05 §7), this is just for listing badges. */
+  /** True if any active variant has stock available right now - the PDP still streams live per-variant numbers separately (docs/05 §7), this is just for listing badges. */
   inStock: boolean;
 }
 
 /**
- * PDP data: the product row plus, live (never cached — docs/05 §7 "cached
+ * PDP data: the product row plus, live (never cached - docs/05 §7 "cached
  * HTML never lies about stock"), each variant's real availability.
  */
 export async function getProductDetail(
@@ -62,7 +62,8 @@ export async function getProductDetail(
   dbHandle: DbOrTx = db,
 ): Promise<ProductDetail> {
   const product = await queries.getProductBySlug(slug, dbHandle);
-  if (!product || product.status !== "active") {
+  // A hidden category hides its products too (see catalog/queries.ts).
+  if (!product || product.status !== "active" || !product.category.isActive) {
     throw new NotFoundError(`Product "${slug}"`);
   }
 

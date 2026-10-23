@@ -1,8 +1,8 @@
 /**
- * A thin, hand-written Resend REST client — same reasoning as
+ * A thin, hand-written Resend REST client - same reasoning as
  * payments/razorpay.ts: `fetchImpl` is injectable so tests can intercept
  * every call, and it avoids an extra SDK dependency for what's a single
- * simple endpoint. No `import "server-only"` — this has to stay importable
+ * simple endpoint. No `import "server-only"` - this has to stay importable
  * from server/lib/email.ts, which in turn must stay importable from
  * server/auth/config.ts (unguarded, for scripts/create-admin.ts under
  * plain tsx).

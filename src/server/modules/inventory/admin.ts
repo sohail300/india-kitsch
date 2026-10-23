@@ -6,15 +6,21 @@ import { inventory, stockMovements } from "@/server/db/schema";
 import { writeAuditLog } from "@/server/modules/admin/audit";
 import type { AdminMutationResult } from "@/server/modules/admin/types";
 
-export type StockAdjustmentReason = "adjustment" | "restock";
+/** Reasons an admin can record by hand. `return` = returned outside an order (in-shop, courier). */
+export const STOCK_ADJUSTMENT_REASONS = ["adjustment", "restock", "return"] as const;
+export type StockAdjustmentReason = (typeof STOCK_ADJUSTMENT_REASONS)[number];
 
 export interface AdjustStockInput {
   variantId: string;
-  /** Signed — positive increases on_hand (e.g. a restock delivery), negative decreases it (e.g. damage, loss, a stocktake correction). */
+  /** Signed - positive increases on_hand (e.g. a restock delivery), negative decreases it (e.g. damage, loss, a stocktake correction). */
   delta: number;
   reason: StockAdjustmentReason;
-  /** Required — docs/03 §11: "inline stock edit writes an adjustment movement with a required reason." */
-  note: string;
+  /**
+   * Optional free text. The required part of docs/03 §11's "required reason"
+   * is `reason` (restock / return / adjustment) — every change is still categorised
+   * and logged; the note just adds detail when the owner has any.
+   */
+  note?: string;
 }
 
 /**
@@ -29,11 +35,16 @@ export async function adjustStock(
   adminUserId: string,
   dbHandle: Db = db,
 ): Promise<AdminMutationResult<typeof inventory.$inferSelect>> {
+  // Checked at runtime too: the reason comes from a form, and the movement
+  // ledger must never get a system-only reason (reserve/release/sale).
+  if (!(STOCK_ADJUSTMENT_REASONS as readonly string[]).includes(input.reason)) {
+    throw new Error(`adjustStock: unsupported reason "${input.reason}"`);
+  }
+  if ((input.reason === "restock" || input.reason === "return") && input.delta < 0) {
+    throw new Error(`adjustStock: "${input.reason}" can only increase stock`);
+  }
   if (!Number.isInteger(input.delta) || input.delta === 0) {
     throw new Error(`adjustStock: delta must be a non-zero integer, got ${input.delta}`);
-  }
-  if (input.note.trim().length === 0) {
-    throw new Error("adjustStock: note is required");
   }
 
   return dbHandle.transaction(async (tx) => {
@@ -61,7 +72,7 @@ export async function adjustStock(
       delta: input.delta,
       reason: input.reason,
       adminUserId,
-      note: input.note,
+      note: input.note?.trim() || null,
     });
 
     await writeAuditLog(tx, {
@@ -72,7 +83,7 @@ export async function adjustStock(
       after: {
         delta: input.delta,
         reason: input.reason,
-        note: input.note,
+        note: input.note?.trim() || null,
         newOnHand: updated.onHand,
       },
     });

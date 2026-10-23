@@ -21,7 +21,7 @@ export type SettleOutcome =
 
 /**
  * The single place that decides what a captured Razorpay payment means for
- * an order — shared by the webhook handler and the reconciler (docs/12
+ * an order - shared by the webhook handler and the reconciler (docs/12
  * "One doc gap to close before Phase 6 code": late-payment handling has to
  * run in the webhook directly, not only the 10-minute reconciler, so a late
  * payer isn't waiting up to 10 minutes for their order to confirm). Both
@@ -66,9 +66,9 @@ export async function settleCapturedPayment(
       return "reinstated";
     }
 
-    // Stock is gone or the order moved on — refund instead (docs/06 §9
+    // Stock is gone or the order moved on - refund instead (docs/06 §9
     // step 7: "else auto-refund and email the customer"). Requires a
-    // RazorpayClient — the webhook handler always has one; if this is ever
+    // RazorpayClient - the webhook handler always has one; if this is ever
     // called without one for a case that needs it, that's a caller bug.
     if (!razorpay) {
       throw new Error(
@@ -88,7 +88,7 @@ export async function settleCapturedPayment(
  * on cancellation, then transition and sell it, all in one transaction so
  * a failure at any step leaves nothing half-done. Returns false (not an
  * error) for the ordinary case where stock ran out or someone else already
- * changed the order — the caller falls back to a refund.
+ * changed the order - the caller falls back to a refund.
  */
 async function tryReinstateLatePayment(
   dbHandle: Db,
@@ -125,7 +125,7 @@ async function tryReinstateLatePayment(
 
 /**
  * No local `payments` row exists for this attempt yet (the order was
- * cancelled before this capture was ever seen) — `refunds.paymentId` has a
+ * cancelled before this capture was ever seen) - `refunds.paymentId` has a
  * hard FK, so one has to be created first.
  */
 async function refundLatePayment(

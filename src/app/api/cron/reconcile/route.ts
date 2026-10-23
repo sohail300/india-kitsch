@@ -4,7 +4,7 @@ import { reconcileExpiredOrders } from "@/server/modules/payments/reconcile";
 
 /**
  * Called every 10 minutes by the Cloudflare cron Worker (docs/08 §18) with
- * `Authorization: Bearer CRON_SECRET` — lost-webhook recovery and
+ * `Authorization: Bearer CRON_SECRET` - lost-webhook recovery and
  * late-payment detection (docs/06 §9 step 7). Idempotent: every order it
  * touches goes through the same guarded transition/reservation functions
  * checkout and the webhook use, so running it twice in a row is harmless.

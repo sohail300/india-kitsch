@@ -22,7 +22,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:${imageOrigin ? ` ${imageOrigin}` : ""};
   font-src 'self';
-  connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://challenges.cloudflare.com;
+  connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://challenges.cloudflare.com https://*.r2.cloudflarestorage.com;
   frame-src https://checkout.razorpay.com https://api.razorpay.com https://challenges.cloudflare.com;
   object-src 'none';
   base-uri 'self';

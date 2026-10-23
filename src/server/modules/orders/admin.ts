@@ -11,6 +11,7 @@ import type { AdminMutationResult } from "@/server/modules/admin/types";
 import { returnSoldStock } from "@/server/modules/inventory/service";
 import {
   sendOrderCancelledEmail,
+  sendOrderDeliveredEmail,
   sendOrderRefundedEmail,
   sendOrderShippedEmail,
 } from "@/server/modules/notifications/service";
@@ -121,8 +122,9 @@ export async function markOrderDelivered(
   orderId: string,
   adminUserId: string,
   dbHandle: Db = db,
+  emailSender: EmailSender = defaultEmailSender,
 ): Promise<AdminMutationResult<Order>> {
-  return dbHandle.transaction(async (tx) => {
+  const result = await dbHandle.transaction(async (tx) => {
     const order = await getOrderById(orderId, tx);
     if (!order) throw new NotFoundError(`Order ${orderId}`);
 
@@ -144,6 +146,11 @@ export async function markOrderDelivered(
 
     return { result: updated, revalidateTags: [] };
   });
+
+  // After commit, like the shipped email: a failed send never undoes the status.
+  await sendOrderDeliveredEmail(orderId, dbHandle, emailSender);
+
+  return result;
 }
 
 export async function setOrderNote(
@@ -180,7 +187,7 @@ async function findCapturedPayment(order: Order, dbHandle: Db) {
     where: and(eq(payments.orderId, order.id), eq(payments.status, "captured")),
   });
   if (!payment?.razorpayPaymentId) {
-    throw new Error(`No captured payment found for order ${order.id} — can't refund`);
+    throw new Error(`No captured payment found for order ${order.id} - can't refund`);
   }
   return payment;
 }
@@ -195,7 +202,7 @@ export interface RefundOrderInput {
 /**
  * A refund that doesn't necessarily change the order's status (docs/06
  * §10: "any paid state -> refunded | full refund complete; partial refunds
- * tracked in refundedPaise while status is unchanged") — only transitions
+ * tracked in refundedPaise while status is unchanged") - only transitions
  * to `refunded` once the running total actually reaches the order total.
  * For the "customer wants this whole order cancelled" case, see
  * `cancelPaidOrder` instead, which forces a full refund and restocks.
@@ -283,7 +290,7 @@ export interface CancelPaidOrderInput {
 /**
  * docs/06 §10: "paid/processing -> cancelled | admin | refund required
  * (Razorpay), restock, email." Always a full refund of whatever's left
- * unrefunded, plus restocking every line — this is "the customer isn't
+ * unrefunded, plus restocking every line - this is "the customer isn't
  * getting this order after all," not a partial-refund adjustment.
  */
 export async function cancelPaidOrder(
@@ -347,7 +354,7 @@ export async function cancelPaidOrder(
     );
     if (!updated) {
       throw new Error(
-        `cancelPaidOrder: order ${input.orderId} changed state concurrently — aborting without a second refund`,
+        `cancelPaidOrder: order ${input.orderId} changed state concurrently - aborting without a second refund`,
       );
     }
 

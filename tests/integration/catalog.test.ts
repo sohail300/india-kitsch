@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "@/server/db/schema";
 import { NotFoundError } from "@/server/lib/errors";
 import { createId } from "@/server/lib/ids";
+import { quoteCart } from "@/server/modules/cart/quote";
 import * as catalogQueries from "@/server/modules/catalog/queries";
 import { getProductDetail, searchProducts } from "@/server/modules/catalog/service";
 import { migrateTestDb } from "../setup/migrate-test-db";
@@ -261,5 +262,44 @@ describe("cascade sanity", () => {
       where: eq(schema.productVariants.productId, redKurta.id),
     });
     expect(variant).toBeDefined();
+  });
+});
+
+describe("hidden categories", () => {
+  it("hide their products everywhere on the storefront, and bring them back when shown", async () => {
+    const setVisible = (isActive: boolean) =>
+      db
+        .update(schema.categories)
+        .set({ isActive })
+        .where(eq(schema.categories.id, otherCategoryId));
+    const [variant] = await db
+      .select({ id: schema.productVariants.id })
+      .from(schema.productVariants)
+      .where(eq(schema.productVariants.productId, otherCategoryProduct.id));
+    const search = { q: `Other Category Item ${categoryId}`, sort: "newest" as const, page: 1 };
+
+    await setVisible(false);
+    try {
+      // Listing/search across all categories, facets, PDP and cart all agree.
+      const listed = await catalogQueries.listProducts(search, db);
+      expect(listed.items.map((p) => p.slug)).not.toContain(otherCategoryProduct.slug);
+      await expect(getProductDetail(otherCategoryProduct.slug, db)).rejects.toThrow(NotFoundError);
+      const quote = await quoteCart([{ variantId: variant!.id, quantity: 1 }], {}, db);
+      expect(quote.lines[0]?.status).toBe("unpurchasable");
+
+      // The product itself is untouched — hiding never deletes anything.
+      const stillThere = await db.query.products.findFirst({
+        where: eq(schema.products.id, otherCategoryProduct.id),
+      });
+      expect(stillThere?.status).toBe("active");
+    } finally {
+      await setVisible(true);
+    }
+
+    const relisted = await catalogQueries.listProducts(search, db);
+    expect(relisted.items.map((p) => p.slug)).toContain(otherCategoryProduct.slug);
+    await expect(getProductDetail(otherCategoryProduct.slug, db)).resolves.toMatchObject({
+      slug: otherCategoryProduct.slug,
+    });
   });
 });

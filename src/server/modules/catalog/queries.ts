@@ -19,7 +19,7 @@ export async function getCategoryBySlug(slug: string, dbHandle: DbOrTx = db) {
   });
 }
 
-/** Flat, sortOrder-ordered list — 1-level nesting (docs/03 §4), so callers group by parentId themselves. */
+/** Flat, sortOrder-ordered list - categories have no nesting (docs/03 §4). */
 export async function listActiveCategories(dbHandle: DbOrTx = db) {
   return dbHandle.query.categories.findMany({
     where: eq(categories.isActive, true),
@@ -27,7 +27,7 @@ export async function listActiveCategories(dbHandle: DbOrTx = db) {
   });
 }
 
-/** Full product detail for the PDP: variants, images, category and size chart. Does not filter by status — callers check `status === "active"` (or allow drafts for admin preview). */
+/** Full product detail for the PDP: variants, images, category and size chart. Does not filter by status - callers check `status === "active"` (or allow drafts for admin preview). */
 export async function getProductBySlug(slug: string, dbHandle: DbOrTx = db) {
   return dbHandle.query.products.findFirst({
     where: eq(products.slug, slug),
@@ -40,6 +40,21 @@ export async function getProductBySlug(slug: string, dbHandle: DbOrTx = db) {
   });
 }
 
+/**
+ * A product only shows on the storefront while its category is visible:
+ * hiding a category hides its products too (they're never deleted, and
+ * reappear when the category is shown again). Same rule in the PDP
+ * (service.ts) and cart/checkout (cart/quote.ts).
+ */
+function inVisibleCategory(dbHandle: DbOrTx) {
+  return exists(
+    dbHandle
+      .select({ one: sql`1` })
+      .from(categories)
+      .where(and(eq(categories.id, products.categoryId), eq(categories.isActive, true))),
+  );
+}
+
 /** The effective selling price used for filtering/sorting: a variant's own price if set, else the product's. */
 const effectiveVariantPrice = sql<number>`coalesce(${productVariants.pricePaise}, ${products.pricePaise})`;
 
@@ -48,7 +63,7 @@ function buildListProductsWhere(
   categoryId: string | undefined,
   dbHandle: DbOrTx,
 ) {
-  const conditions = [eq(products.status, "active")];
+  const conditions = [eq(products.status, "active"), inVisibleCategory(dbHandle)];
 
   if (categoryId) {
     conditions.push(eq(products.categoryId, categoryId));
@@ -106,7 +121,7 @@ export interface ListProductsResult {
   totalPages: number;
 }
 
-/** One indexed, joined query for the listing page — no N+1 (docs/05 §7). */
+/** One indexed, joined query for the listing page - no N+1 (docs/05 §7). */
 export async function listProducts(
   input: ListProductsInput,
   dbHandle: DbOrTx = db,
@@ -162,6 +177,7 @@ export async function listFacets(
 
   const scope = and(
     eq(products.status, "active"),
+    inVisibleCategory(dbHandle),
     eq(productVariants.productId, products.id),
     eq(productVariants.isActive, true),
     category ? eq(products.categoryId, category.id) : undefined,

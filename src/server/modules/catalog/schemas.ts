@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Products per listing page — also used to compute pagination metadata. */
+/** Products per listing page - also used to compute pagination metadata. */
 export const PRODUCTS_PAGE_SIZE = 24;
 
 export const productSortSchema = z.enum(["newest", "price_asc", "price_desc"]);

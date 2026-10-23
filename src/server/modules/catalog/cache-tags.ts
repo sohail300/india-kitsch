@@ -3,8 +3,8 @@ import "server-only";
 /**
  * Cache tag contract for the catalog (docs/05 §7: "Home, category and
  * product pages are cached with tags; admin mutations revalidate the
- * relevant tags"). No `"use cache"` component exists yet — the frontend is
- * Phase 10+ — but the tag names are decided now so every future cached
+ * relevant tags"). No `"use cache"` component exists yet - the frontend is
+ * Phase 10+ - but the tag names are decided now so every future cached
  * component and every admin mutation (Phase 7) agree on the same strings
  * instead of each guessing one.
  */

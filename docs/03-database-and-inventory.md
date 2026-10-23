@@ -24,7 +24,7 @@ A Postgres **schema** is a named folder of tables inside one database. Supabase'
 
 ### Catalog
 
-- `categories` — id, parentId (nullable, 1-level nesting in v1), name, slug (unique), description, imageKey, sortOrder, isActive. Idx: parentId.
+- `categories` — id, name, slug (unique), description, imageKey, sortOrder, isActive. **Flat — no sub-categories** (the original 1-level `parentId` nesting was removed in migration `0006_flatten_categories` to keep the catalog simple for the store owner: Category → Product → Variant → Inventory).
 - `size_charts` — id, name, unit (`cm`/`in`), columns (jsonb), rows (jsonb). Shown on PDP; admin edits as a table.
 - `products` — id, slug (unique), name, description (plain text or sanitised markdown, never raw HTML), categoryId (single primary category; collections/tags deferred), sizeChartId?, `pricePaise` (selling price, GST-inclusive), `mrpPaise` (strike-through), `gstRateBps`, `hsnCode`, status (`draft`|`active`|`archived`), isFeatured, seoTitle, seoDescription, createdAt, updatedAt, publishedAt. Idx: (status, categoryId), (status, createdAt), trigram index on `lower(name)` for search.
 - `product_variants` — id, productId, **sku (unique)**, `size`, `color`, `colorHex`, `pricePaise?` (null ⇒ product price; supports variant pricing), `mrpPaise?`, weightGrams?, isActive, sortOrder. **Unique (productId, size, color).** _Design note: explicit size/color columns instead of a generic option-type/option-value model. Simpler queries and filters, and exactly what a clothing brand needs; revisit only if non-apparel products arrive._
@@ -35,7 +35,7 @@ A Postgres **schema** is a named folder of tables inside one database. Supabase'
 ### Commerce
 
 - `addresses` — id, userId, label, fullName, phone, line1, line2, city, state (GST state code), pincode (6 digits), isDefault.
-- `coupons` — id, code (unique, uppercased), type (`percent`|`fixed`), valueBps | valuePaise, minSubtotalPaise, maxDiscountPaise?, startsAt, endsAt, `maxUses?`, `usedCount`, perUserLimit?, isActive, with `CHECK (max_uses IS NULL OR used_count <= max_uses)`.
+- `coupons` — id, code (unique, uppercased), type (`percent`|`fixed`), valueBps | valuePaise, minSubtotalPaise, maxDiscountPaise?, startsAt, endsAt, `maxUses?`, `usedCount`, perUserLimit?, isActive, createdByAdminId? (→ user, `ON DELETE SET NULL`), with `CHECK (max_uses IS NULL OR used_count <= max_uses)`.
 - `coupon_redemptions` — id, couponId, userId, orderId (unique), amountPaise, createdAt.
 - `orders` — id, **orderNumber** (unique, from a Postgres sequence starting at 1001; displayed `IK-1001`), userId, **status** (§10), currency `INR`, `subtotalPaise`, `discountPaise`, `shippingPaise`, `taxIncludedPaise` (informational GST component), `totalPaise`, `refundedPaise`, couponCode (snapshot), **shipping address snapshot columns**, customerEmail/Phone snapshot, `razorpayOrderId` (unique), `idempotencyKey` (unique per user), `expiresAt` (pending-payment TTL), `courier`, `trackingNumber`, `trackingUrl`, `adminNote`, placedAt, paidAt, shippedAt, deliveredAt, cancelledAt, cancelReason, createdAt, updatedAt. Idx: (userId, createdAt), (status, createdAt), razorpayOrderId, expiresAt.
 - `order_items` — id, orderId, variantId (SET NULL on delete), **snapshots:** productName, sku, size, color, imageKey, `unitPricePaise`, `mrpPaise`, quantity, gstRateBps, hsnCode, `lineTotalPaise`, `lineDiscountPaise`. Order history never changes when the catalog changes.
@@ -46,11 +46,11 @@ A Postgres **schema** is a named folder of tables inside one database. Supabase'
 
 ### Misc
 
-`store_settings` (key/value: shipping fee, free-shipping threshold, GSTIN, seller state, contact info), `contact_messages`, `audit_log` (admin mutations: who/what/before/after).
+`store_settings` (key/value: shipping fee, free-shipping threshold, GSTIN, seller state, contact info), `contact_messages`, `audit_log` (admin mutations: who/what/before/after; indexed on `created_at`, `(entity_type, entity_id)` and `admin_user_id` for the admin Activity log, migration `0007`).
 
 ### Relationships
 
-`user 1─N addresses, orders` · `categories 1─N products` (self-ref parent) · `products 1─N variants, images` · `variant 1─1 inventory` · `variant 1─N stock_movements` · `orders 1─N order_items, order_events, payments, refunds` · `coupon 1─N redemptions` · `order 1─0..1 redemption`.
+`user 1─N addresses, orders` · `categories 1─N products` · `products 1─N variants, images` · `variant 1─1 inventory` · `variant 1─N stock_movements` · `orders 1─N order_items, order_events, payments, refunds` · `coupon 1─N redemptions` · `order 1─0..1 redemption`.
 
 ### Search
 
@@ -70,3 +70,51 @@ Rough estimate ≈ 5 KB per order including items, events, payments and indexes,
 - **Coupon usage** uses the same pattern: `UPDATE coupons SET used_count = used_count + 1 WHERE id = :c AND (max_uses IS NULL OR used_count < max_uses)`; 0 rows ⇒ `CouponExhausted`.
 - **Admin adjustments:** inline stock edit writes an `adjustment` movement with a required reason; a low-stock threshold surfaces on the dashboard; archived products keep their history.
 - **Pooling:** the app connects through Supabase's **transaction pooler** (interactive transactions work; the connection is held only for the transaction's duration) with a small pool size, and **prepared statements disabled** (`prepare: false` with `postgres-js`, or use `pg`). Keep transactions short (a handful of statements), with no external calls inside. The Micro instance is small and shared, so keep queries indexed.
+
+## To be implemented: back-in-stock alerts ("email me when it's back")
+
+**Not built yet — planned feature, recorded 2026-09-25.** Motivating case: customer A starts paying for the last unit (it's held for A for 5 minutes, §11); customer B then tries to check out and is stopped with "item unavailable". If A's payment fails or is abandoned, the hold is released and the unit becomes buyable again — but today **nothing records that B wanted it**, so B never finds out. This feature closes that gap, and more generally lets shoppers ask to be told when a sold-out size/colour returns.
+
+### Data
+
+A new `stock_alerts` table in the `app` schema:
+
+- `id`, `variantId` (→ `product_variants`, `ON DELETE CASCADE`), `userId` (→ `user`, nullable for guests), `email` (always stored, so the alert survives an email change and supports guests), `source` (`checkout_blocked` | `notify_me`), `createdAt`, `notifiedAt` (null until sent), `unsubscribeToken` (random, for the one-click opt-out link).
+- Unique on (`variantId`, `email`) **where `notifiedAt IS NULL`** — one pending alert per person per variant; a new one can be created after the previous was sent.
+
+### How customers get on the list
+
+1. **Automatically when checkout is blocked** for a line with `status: "unavailable"` (`checkout/createOrder.ts`'s `cart_changed` result) — B's exact situation. The UI should say so ("We'll email you if it's back").
+2. **A "Notify me when it's back" button** on a sold-out size/colour on the product page — the standard pattern, covering shoppers who never reached checkout.
+
+### What triggers the email
+
+"Available" (`on_hand − reserved`) going from **0 to > 0**. Every such change already goes through one of three functions, so the check hooks in right after each (same flow, so none is missed):
+
+1. **`inventory/service.ts`'s `releaseStock`** — an unpaid checkout's hold expiring or being cancelled (called from `releaseExpiredReservationsForVariants` and the `/api/cron/reconcile` sweep).
+2. **`inventory/admin.ts`'s `adjustStock`** — an admin restock or upward manual adjustment (reasons `restock` / `adjustment`).
+3. **`inventory/service.ts`'s `returnSoldStock`** — stock coming back from a paid order (cancel-with-restock, or a return; movement reason `return`).
+
+### Rules (to avoid spamming or misleading people)
+
+- **One email per alert** — `notifiedAt` is set when sent; stock bouncing 0 → 1 → 0 → 1 doesn't re-send.
+- **No hold or priority for the notified customer** — the email doesn't reserve anything; first to pay wins. The copy says "while stocks last".
+- **Grace delay after an expired hold** (proposed ~10–15 minutes): A's payment may simply be slow, and a late payment is reinstated if the stock is still there (docs/06 §9, `payments/settle.ts`). Emailing instantly would risk telling B about a unit that's about to be A's again. Send only if the unit is still available when the delay ends. Admin restocks (`adjustStock`) can send immediately.
+- **Don't email about things that can't be bought** — skip if the product is draft/archived, the variant is inactive, or its category is hidden (hidden categories hide their products — docs/07 implementation notes).
+- **One-click unsubscribe** via `unsubscribeToken`, no login required.
+- Sent through the existing Resend `EmailSender` with a new template in `notifications/templates/` (same shared layout as the order emails): product name, size/colour, image, a link straight to the product page.
+
+### Admin (optional)
+
+A "N waiting" count per size/colour in Inventory (and on the product's sizes & colours list) — tells the owner which items are worth restocking.
+
+### Tests (per docs/09 §20, against real Postgres)
+
+Alert created on a blocked checkout; dedupe of pending alerts; each of the three triggers fires exactly once and only on 0 → > 0; the grace delay suppresses the email when a late payment is reinstated; no email for hidden/archived/inactive; unsubscribe token works and is single-purpose.
+
+### Open decisions (ask the owner before building)
+
+1. Sign-up paths: automatic on blocked checkout, the "Notify me" button, or both?
+2. Allow guest alerts by email only, or signed-in customers only?
+3. Grace delay after an unpaid checkout's release — ~15 minutes OK?
+4. Timing: build the backend ahead of the storefront, or together with the product page / checkout UI (the customer-facing entry points only exist once the storefront is built)?

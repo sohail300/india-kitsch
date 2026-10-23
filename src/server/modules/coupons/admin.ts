@@ -32,6 +32,7 @@ export async function createCoupon(
         maxUses: input.maxUses,
         perUserLimit: input.perUserLimit,
         isActive: input.isActive,
+        createdByAdminId: adminUserId,
       })
       .returning();
 

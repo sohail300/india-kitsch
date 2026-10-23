@@ -1,10 +1,10 @@
 /**
- * Local/staging seed data — never run against production. Populates
+ * Local/staging seed data - never run against production. Populates
  * enough of the catalog to build and test the public storefront and
  * admin panel against: categories, ~20 products with variants and stock,
  * a couple of test coupons. See docs/10 §22 Phase 1 and docs/12.
  *
- * Does NOT create a user or admin account — Better Auth owns password
+ * Does NOT create a user or admin account - Better Auth owns password
  * hashing, so an admin is created through its real signup flow via
  * scripts/create-admin.ts (Phase 3), not by inserting a row here.
  *
@@ -13,10 +13,10 @@
  * Builds its own connection rather than importing `./client`: that file
  * carries `import "server-only"`, which is correct for the real app (it
  * must never end up in a client bundle) but breaks under plain Node/tsx,
- * which this script — unlike the Next.js app — runs under directly.
+ * which this script - unlike the Next.js app - runs under directly.
  *
  * Everything runs inside one transaction, so a failure partway through
- * (as happened once already — see the SKU comment below) can't leave
+ * (as happened once already - see the SKU comment below) can't leave
  * half-seeded data behind for the next run to collide with.
  */
 import { config } from "dotenv";
@@ -57,7 +57,7 @@ function slugify(text: string, suffix: string): string {
   return `${text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")}-${suffix}`;
+    .replace(/(^-|-$)/g, "")}-${suffix.toLowerCase()}`;
 }
 
 db.transaction(async (tx) => {
@@ -109,12 +109,12 @@ db.transaction(async (tx) => {
           id: createId(),
           slug: slugify(name, createId().slice(-6)),
           name,
-          description: `A ${name.toLowerCase()} from the India Kitsch collection — seed data, not real copy.`,
+          description: `A ${name.toLowerCase()} from the India Kitsch collection - seed data, not real copy.`,
           categoryId: category.id,
           sizeChartId: sizeChart.id,
           pricePaise,
           mrpPaise,
-          gstRateBps: 500, // 5% — apparel slab; confirm the real rate with a CA (docs/11 §27)
+          gstRateBps: 500, // 5% - apparel slab; confirm the real rate with a CA (docs/11 §27)
           hsnCode: "6204",
           status: "active",
           isFeatured: i === 0,
@@ -125,7 +125,7 @@ db.transaction(async (tx) => {
 
       // `product.id.slice(-6)` (not the slug) as the SKU's per-product
       // prefix: it's globally unique by construction (ULIDs never
-      // collide), whereas truncating the slug to a fixed width isn't —
+      // collide), whereas truncating the slug to a fixed width isn't -
       // several products with similar names truncated to the same
       // prefix and collided against the sku unique constraint on the
       // first version of this script.

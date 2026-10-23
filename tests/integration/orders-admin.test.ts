@@ -224,8 +224,22 @@ describe("order lifecycle transitions", () => {
       trackingNumber: "TRK123",
     });
 
-    const { result: delivered } = await markOrderDelivered(orderId, adminUserId, db);
+    // Marking delivered emails the customer too (after the status commits).
+    const sent: { to: string; subject: string }[] = [];
+    const capturingSender: EmailSender = {
+      send: async (message) => {
+        sent.push({ to: message.to, subject: message.subject });
+      },
+    };
+    const { result: delivered } = await markOrderDelivered(
+      orderId,
+      adminUserId,
+      db,
+      capturingSender,
+    );
     expect(delivered.status).toBe("delivered");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.subject).toMatch(/has been delivered/);
   });
 
   it("rejects shipping without a tracking number", async () => {

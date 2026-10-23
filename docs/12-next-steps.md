@@ -10,9 +10,9 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 
 ~~`docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment**... inside the **10-minute reconciler**...~~ Resolved: `payments/settle.ts`'s `settleCapturedPayment` is shared by the webhook handler and the reconciler, so a late payer is reinstated or refunded the moment the webhook arrives — the reconciler is now purely the backstop for a lost webhook, not the primary path. See docs/06's "Implementation notes (Phase 6)" section and `tests/integration/payments.test.ts`'s "reinstates/auto-refunds a late payment directly" cases.
 
-## GitHub Actions secrets needed (blocks the backup pipeline right now)
+## GitHub Actions secrets — done
 
-`.github/workflows/backup.yml` and `prune-backups.yml` (docs/08 §16) are written but can't run until these exist in the repo's **Settings → Secrets and variables → Actions**. Add at **repo** scope (not environment-scoped — there's only one environment for these jobs).
+`.github/workflows/backup.yml` and `prune-backups.yml` (docs/08 §16) needed these added to the repo's **Settings → Secrets and variables → Actions** before they could run at all. **Resolved:** all secrets/variables below are added. The dedicated `ik-backups` R2 bucket has also been created — `scripts/backup-db.ts` still needs updating to actually use its own scoped credentials instead of the shared `R2_BUCKET` (images bucket), see the file's own TODO comment and docs/08 §16.
 
 **Secrets** (Secrets tab):
 
@@ -23,7 +23,7 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 | `R2_ACCESS_KEY_ID`     | Same as `.env.local`                                                                                          |
 | `R2_SECRET_ACCESS_KEY` | Same as `.env.local`                                                                                          |
 | `R2_BUCKET`            | Same as `.env.local`                                                                                          |
-| `B2_ENDPOINT`          | From the Backblaze B2 bucket you still need to create (see the prerequisites list below)                      |
+| `B2_ENDPOINT`          | From the Backblaze B2 bucket — created and verified                                                           |
 | `B2_BUCKET`            | From that same B2 bucket                                                                                      |
 | `B2_ACCESS_KEY_ID`     | From a B2 application key                                                                                     |
 | `B2_SECRET_ACCESS_KEY` | From that same application key                                                                                |
@@ -34,7 +34,32 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 | ----------------------- | --------------------------------------------------------------------------- |
 | `BACKUP_AGE_PUBLIC_KEY` | The public half of the age keypair — already in `.env.local`/`.env.example` |
 
-Until these exist, both workflows will fail on every scheduled run (harmless — nothing partial happens, they just exit with a missing-env error) or can simply be left un-triggered until you're ready.
+All of the above are now added — both workflows can run on schedule.
+
+## Cron Worker secrets needed (blocks the owner-alert email from firing)
+
+`cron-worker/src/index.ts`'s `sendOwnerAlertEmail` (docs/08 §18) is written and its Resend request shape verified against the real API from outside the Worker runtime — but the _deployed_ Worker won't actually have anything to send with until these are set, since it's a separate Cloudflare deployable with its own env, not the Next app's. Add via (from `cron-worker/`):
+
+```
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put ALERT_EMAIL_FROM
+npx wrangler secret put ALERT_EMAIL_TO
+```
+
+| Name               | Value / where to get it                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`   | Same value as the Next app's `RESEND_API_KEY` in `.env.local` — same Resend account, a separate secret here only because this Worker can't read the app's env |
+| `ALERT_EMAIL_FROM` | A sender address on a domain Resend has verified for you — same convention as the Next app's `SUPPORT_EMAIL_FROM`, doesn't need to match it exactly           |
+| `ALERT_EMAIL_TO`   | Same value as the Next app's `CONTACT_INBOX_EMAIL` — the real, owner-monitored inbox                                                                          |
+
+Until these exist, a daily-check failure still throws and still logs to Workers Logs/`wrangler tail` (unchanged from before) — it just can't email you about it yet. See `cron-worker/.dev.vars.example` for the equivalent local-dev vars.
+
+## `ik-backups` bucket — one open question before `scripts/backup-db.ts` can be updated
+
+The dedicated `ik-backups` R2 bucket exists (Cloudflare), but the script still uploads to the shared `R2_BUCKET` (images bucket) — its own TODO comment explains why (docs/08 §16). To close this out, I need one of:
+
+- A new scoped R2 API token (access key + secret) limited to just `ik-backups`, so a leaked backup-job credential can't also touch product images — the point of splitting the bucket in the first place; or
+- Your OK to point the existing `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` at the new bucket name as an interim step, accepting that they'd still be scoped to both buckets until a proper split happens later.
 
 ## Owner/user prerequisites (long lead time — start whenever convenient, no code blocked on these)
 

@@ -14,6 +14,7 @@ import * as schema from "@/server/db/schema";
 import { CouponExhaustedError } from "@/server/lib/errors";
 import { createId } from "@/server/lib/ids";
 import { redeemCoupon } from "@/server/modules/coupons/service";
+import { couponStatusSql } from "@/server/modules/coupons/status";
 import { validateCoupon } from "@/server/modules/coupons/validate";
 import { migrateTestDb } from "../setup/migrate-test-db";
 
@@ -192,4 +193,43 @@ describe("redeemCoupon concurrency", () => {
     const [row] = await db.select().from(schema.coupons).where(eq(schema.coupons.id, couponId));
     expect(row?.usedCount).toBe(5);
   }, 20_000);
+});
+
+describe("couponStatusSql", () => {
+  it("derives each status, with the switch and expiry taking precedence", async () => {
+    const future = new Date(Date.now() + 86_400_000);
+    const past = new Date(Date.now() - 86_400_000);
+
+    const cases = {
+      live: await createCoupon(),
+      liveInWindow: await createCoupon({ startsAt: past, endsAt: future }),
+      scheduled: await createCoupon({ startsAt: future }),
+      expired: await createCoupon({ endsAt: past }),
+      usedUp: await createCoupon({ maxUses: 2, usedCount: 2 }),
+      inactive: await createCoupon({ isActive: false }),
+      // Switched off beats every other state; expired beats used up.
+      inactiveAndExpired: await createCoupon({ isActive: false, endsAt: past }),
+      expiredAndUsedUp: await createCoupon({ endsAt: past, maxUses: 1, usedCount: 1 }),
+    };
+
+    const rows = await db
+      .select({ id: schema.coupons.id, status: couponStatusSql(new Date()) })
+      .from(schema.coupons)
+      .where(
+        inArray(
+          schema.coupons.id,
+          Object.values(cases).map((c) => c.id),
+        ),
+      );
+    const statusOf = (key: keyof typeof cases) => rows.find((r) => r.id === cases[key].id)?.status;
+
+    expect(statusOf("live")).toBe("live");
+    expect(statusOf("liveInWindow")).toBe("live");
+    expect(statusOf("scheduled")).toBe("scheduled");
+    expect(statusOf("expired")).toBe("expired");
+    expect(statusOf("usedUp")).toBe("used_up");
+    expect(statusOf("inactive")).toBe("inactive");
+    expect(statusOf("inactiveAndExpired")).toBe("inactive");
+    expect(statusOf("expiredAndUsedUp")).toBe("expired");
+  });
 });

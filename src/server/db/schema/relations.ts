@@ -11,11 +11,11 @@ import {
   payments,
   refunds,
 } from "./commerce";
-import { inventory } from "./inventory";
+import { inventory, stockMovements } from "./inventory";
 
 /**
  * Cross-domain relations live here, not inline in commerce.ts/auth.ts/
- * inventory.ts — `user` (auth.ts) and `orders`/`addresses` (commerce.ts)
+ * inventory.ts - `user` (auth.ts) and `orders`/`addresses` (commerce.ts)
  * each need relations pointing at the other, and commerce.ts already
  * imports `user` from auth.ts, so defining `relations(user, ...)` there
  * too would need auth.ts to import back from commerce.ts, a real circular
@@ -73,12 +73,12 @@ export const couponRedemptionsRelations = relations(couponRedemptions, ({ one })
 }));
 
 /**
- * inventory.variantId is a 1:1 PK/FK onto productVariants — the admin
+ * inventory.variantId is a 1:1 PK/FK onto productVariants - the admin
  * inventory grid queries *from* `inventory` (`db.query.inventory.findMany
  * ({ with: { variant: { with: { product: true } } } })`) to get that join
  * in one relational query. Deliberately not the reverse (a second
  * `relations(productVariants, ...)` here): Drizzle doesn't merge multiple
- * `relations()` calls for the same table across files — the later one
+ * `relations()` calls for the same table across files - the later one
  * silently replaces catalog.ts's existing `productVariantsRelations`
  * (`product`, `images`) instead of adding to it. Confirmed the hard way:
  * a `relations(productVariants, ...)` here broke `cart/quote.ts`'s
@@ -90,4 +90,14 @@ export const inventoryRelations = relations(inventory, ({ one }) => ({
     fields: [inventory.variantId],
     references: [productVariants.id],
   }),
+}));
+
+/** Admin's movement-history view (docs/07 §13 "Inventory: ... movement history") - variant/order/admin joined in one relational query. */
+export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
+  variant: one(productVariants, {
+    fields: [stockMovements.variantId],
+    references: [productVariants.id],
+  }),
+  order: one(orders, { fields: [stockMovements.orderId], references: [orders.id] }),
+  adminUser: one(user, { fields: [stockMovements.adminUserId], references: [user.id] }),
 }));

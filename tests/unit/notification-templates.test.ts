@@ -7,11 +7,13 @@ import {
   orderCancelledTemplate,
   orderConfirmationTemplate,
   orderRefundedTemplate,
+  orderDeliveredTemplate,
   orderShippedTemplate,
 } from "@/server/modules/notifications/templates/orders";
 import type {
   OrderEmailAddress,
   OrderEmailLine,
+  StoreContactInfo,
 } from "@/server/modules/notifications/templates/orders";
 
 const shipTo: OrderEmailAddress = {
@@ -27,22 +29,39 @@ const lines: OrderEmailLine[] = [
   { productName: "Red Kurta", size: "M", color: "Red", quantity: 2, lineTotalPaise: 200000 },
 ];
 
+const store: StoreContactInfo = {
+  email: "hello@example.com",
+  phone: null,
+  addressLines: [],
+  social: [],
+};
+
+const baseOrderFields = {
+  subtotalPaise: 200000,
+  shippingPaise: 9900,
+  orderUrl: "https://example.com/account/orders/1042",
+  store,
+};
+
 describe("verifyEmailTemplate / resetPasswordTemplate", () => {
-  it("includes the verification link in both html and text", () => {
-    const result = verifyEmailTemplate("Jane", "https://example.com/verify?token=abc");
+  it("includes the verification link in both html and text", async () => {
+    const result = await verifyEmailTemplate("Jane", "https://example.com/verify?token=abc");
     expect(result.html).toContain("https://example.com/verify?token=abc");
     expect(result.text).toContain("https://example.com/verify?token=abc");
     expect(result.subject).toMatch(/verify/i);
   });
 
-  it("includes the reset link in both html and text", () => {
-    const result = resetPasswordTemplate("Jane", "https://example.com/reset?token=abc");
+  it("includes the reset link in both html and text", async () => {
+    const result = await resetPasswordTemplate("Jane", "https://example.com/reset?token=abc");
     expect(result.html).toContain("https://example.com/reset?token=abc");
     expect(result.text).toContain("https://example.com/reset?token=abc");
   });
 
-  it("HTML-escapes a name containing markup, in html but not text", () => {
-    const result = verifyEmailTemplate('<script>alert("x")</script>', "https://example.com/v");
+  it("HTML-escapes a name containing markup, in html but not text", async () => {
+    const result = await verifyEmailTemplate(
+      '<script>alert("x")</script>',
+      "https://example.com/v",
+    );
     expect(result.html).not.toContain("<script>alert");
     expect(result.html).toContain("&lt;script&gt;");
     expect(result.text).toContain('<script>alert("x")</script>'); // plain text is never HTML, nothing to escape
@@ -50,8 +69,9 @@ describe("verifyEmailTemplate / resetPasswordTemplate", () => {
 });
 
 describe("orderConfirmationTemplate", () => {
-  it("includes the order number, total, line items, and shipping address", () => {
-    const result = orderConfirmationTemplate({
+  it("includes the order number, total, line items, and shipping address", async () => {
+    const result = await orderConfirmationTemplate({
+      ...baseOrderFields,
       orderNumber: 1042,
       customerName: "Jane",
       totalPaise: 209900,
@@ -66,8 +86,9 @@ describe("orderConfirmationTemplate", () => {
     expect(result.text).toContain("₹2,099.00");
   });
 
-  it("escapes product names in html", () => {
-    const result = orderConfirmationTemplate({
+  it("escapes product names in html", async () => {
+    const result = await orderConfirmationTemplate({
+      ...baseOrderFields,
       orderNumber: 1,
       customerName: "Jane",
       totalPaise: 1000,
@@ -81,9 +102,27 @@ describe("orderConfirmationTemplate", () => {
   });
 });
 
+describe("orderDeliveredTemplate", () => {
+  it("says it's delivered and links to the order", async () => {
+    const result = await orderDeliveredTemplate({
+      ...baseOrderFields,
+      orderNumber: 1042,
+      customerName: "Jane",
+      totalPaise: 209900,
+      paymentMethod: null,
+      lines,
+      shipTo,
+    });
+    expect(result.subject).toBe("Your order IK-1042 has been delivered");
+    expect(result.html).toContain("https://example.com/account/orders/1042");
+    expect(result.text).toContain("Delivered, Jane!");
+  });
+});
+
 describe("orderShippedTemplate", () => {
-  it("includes a tracking link when trackingUrl is set", () => {
-    const result = orderShippedTemplate({
+  it("includes a tracking link when trackingUrl is set", async () => {
+    const result = await orderShippedTemplate({
+      ...baseOrderFields,
       orderNumber: 1042,
       customerName: "Jane",
       totalPaise: 209900,
@@ -98,8 +137,9 @@ describe("orderShippedTemplate", () => {
     expect(result.text).toContain("TRK123");
   });
 
-  it("falls back to plain courier/tracking text when trackingUrl is null", () => {
-    const result = orderShippedTemplate({
+  it("falls back to plain courier/tracking text when trackingUrl is null", async () => {
+    const result = await orderShippedTemplate({
+      ...baseOrderFields,
       orderNumber: 1042,
       customerName: "Jane",
       totalPaise: 209900,
@@ -109,14 +149,14 @@ describe("orderShippedTemplate", () => {
       trackingNumber: "TRK123",
       trackingUrl: null,
     });
-    expect(result.html).not.toContain("<a href=");
+    expect(result.html).not.toContain("Track your package");
     expect(result.html).toContain("TRK123");
   });
 });
 
 describe("orderCancelledTemplate", () => {
-  it("mentions the refund amount when refundedPaise > 0", () => {
-    const result = orderCancelledTemplate({
+  it("mentions the refund amount when refundedPaise > 0", async () => {
+    const result = await orderCancelledTemplate({
       orderNumber: 1042,
       customerName: "Jane",
       reason: "customer request",
@@ -126,8 +166,8 @@ describe("orderCancelledTemplate", () => {
     expect(result.text).toContain("₹2,099.00");
   });
 
-  it("omits refund language when refundedPaise is 0", () => {
-    const result = orderCancelledTemplate({
+  it("omits refund language when refundedPaise is 0", async () => {
+    const result = await orderCancelledTemplate({
       orderNumber: 1042,
       customerName: "Jane",
       reason: "never paid",
@@ -139,8 +179,8 @@ describe("orderCancelledTemplate", () => {
 });
 
 describe("orderRefundedTemplate", () => {
-  it("labels a full refund distinctly from a partial one", () => {
-    const full = orderRefundedTemplate({
+  it("labels a full refund distinctly from a partial one", async () => {
+    const full = await orderRefundedTemplate({
       orderNumber: 1042,
       customerName: "Jane",
       amountPaise: 209900,
@@ -148,7 +188,7 @@ describe("orderRefundedTemplate", () => {
     });
     expect(full.subject).not.toMatch(/partial/i);
 
-    const partial = orderRefundedTemplate({
+    const partial = await orderRefundedTemplate({
       orderNumber: 1042,
       customerName: "Jane",
       amountPaise: 50000,

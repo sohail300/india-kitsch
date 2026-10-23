@@ -1,8 +1,11 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { APIError } from "better-auth/api";
+import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { captcha, twoFactor } from "better-auth/plugins";
+import { captcha } from "better-auth/plugins";
 import type { db as AppDb } from "@/server/db/client";
-import { emailSender } from "@/server/lib/email";
+import { user as userTable } from "@/server/db/schema/auth";
+import { authEmailSender } from "@/server/lib/email";
 import {
   resetPasswordTemplate,
   verifyEmailTemplate,
@@ -19,10 +22,10 @@ import {
  * No admin plugin: it brings a multi-role/ban/impersonation model we
  * don't want. Our role model is a plain two-value `customer`/`admin`
  * field (docs/03 §4), and `requireAdmin()` (session.ts) reads that
- * directly — authorization lives in our own DAL, not in a Better Auth
+ * directly - authorization lives in our own DAL, not in a Better Auth
  * plugin's permission system (docs/04 §5).
  */
-// `satisfies`, not `: BetterAuthOptions` — the latter would widen and
+// `satisfies`, not `: BetterAuthOptions` - the latter would widen and
 // erase the literal shape of `user.additionalFields` (role/phone/
 // disabled), and betterAuth()'s generic inference needs that literal
 // type to include them on Session["user"] (see session.ts). `satisfies`
@@ -43,26 +46,26 @@ export function createAuthConfig(db: typeof AppDb, env: AuthConfigEnv) {
       enabled: true,
       minPasswordLength: 8,
       // Verification is required before checkout (our own check in the
-      // checkout module, docs/06 §9), not before login — so this stays
+      // checkout module, docs/06 §9), not before login - so this stays
       // false.
       requireEmailVerification: false,
-      // Per Better Auth's own guidance: never `await` sending the email —
+      // Per Better Auth's own guidance: never `await` sending the email -
       // doing so would let response timing reveal whether an address is
       // registered.
       sendResetPassword: async ({ user, url }) => {
-        const email = resetPasswordTemplate(user.name, url);
-        void emailSender.send({ to: user.email, ...email });
+        const email = await resetPasswordTemplate(user.name, url);
+        void authEmailSender.send({ to: user.email, ...email });
       },
     },
 
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
-        const email = verifyEmailTemplate(user.name, url);
-        void emailSender.send({ to: user.email, ...email });
+        const email = await verifyEmailTemplate(user.name, url);
+        void authEmailSender.send({ to: user.email, ...email });
       },
     },
 
-    // Only registered once real Google credentials exist — the `account`
+    // Only registered once real Google credentials exist - the `account`
     // table's shape doesn't depend on which providers are active.
     ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
       ? {
@@ -77,7 +80,7 @@ export function createAuthConfig(db: typeof AppDb, env: AuthConfigEnv) {
 
     user: {
       additionalFields: {
-        // Never client-settable (`input: false`) — prevents privilege
+        // Never client-settable (`input: false`) - prevents privilege
         // escalation via the signup form. Promoted only by
         // scripts/create-admin.ts or a direct DB update. See docs/03 §4,
         // docs/04 §5.
@@ -102,6 +105,29 @@ export function createAuthConfig(db: typeof AppDb, env: AuthConfigEnv) {
     // Vercel functions don't persist in-memory state across invocations
     // (docs/01 §0), so "database" storage is the only option that
     // actually works here, not the (memory) default.
+    // Disabled accounts can't sign in at all: every way of getting a session
+    // (email/password, Google) goes through session creation, so rejecting
+    // it here covers them all. `requireUser` (session.ts) still re-checks
+    // `disabled` on every request as the backstop.
+    databaseHooks: {
+      session: {
+        create: {
+          before: async (session) => {
+            const [account] = await db
+              .select({ disabled: userTable.disabled })
+              .from(userTable)
+              .where(eq(userTable.id, session.userId));
+            if (account?.disabled) {
+              throw new APIError("FORBIDDEN", {
+                message: "This account has been disabled",
+                code: "ACCOUNT_DISABLED",
+              });
+            }
+          },
+        },
+      },
+    },
+
     rateLimit: {
       enabled: true,
       window: 60,
@@ -111,22 +137,16 @@ export function createAuthConfig(db: typeof AppDb, env: AuthConfigEnv) {
         "/sign-in/email": { window: 60, max: 5 },
         "/sign-up/email": { window: 60, max: 3 },
         "/request-password-reset": { window: 60, max: 3 },
-        "/two-factor/*": { window: 60, max: 5 },
       },
     },
 
     plugins: [
-      // TOTP 2FA for admin accounts (docs/04 §5). Enrollment/enforcement
-      // flow is separate application logic; this gets the `twoFactor`
-      // table and `user.twoFactorEnabled` field, plus the actual
-      // verify/challenge endpoints.
-      twoFactor(),
       // Cloudflare Turnstile on sign-up/sign-in/reset (docs/04 §5, §14).
       // Only active once a real (or, locally, Cloudflare's official
-      // always-pass test) secret is configured — see docs/29 #16-style
+      // always-pass test) secret is configured - see docs/29 #16-style
       // "optional until built" pattern in env.ts. If this is ever
       // missing in production, those endpoints run with **no** captcha
-      // protection — see docs/11 §27 for why that's flagged as a
+      // protection - see docs/11 §27 for why that's flagged as a
       // pre-launch check, not silently acceptable.
       ...(env.TURNSTILE_SECRET
         ? [captcha({ provider: "cloudflare-turnstile", secretKey: env.TURNSTILE_SECRET })]
@@ -135,7 +155,7 @@ export function createAuthConfig(db: typeof AppDb, env: AuthConfigEnv) {
   } satisfies BetterAuthOptions;
 }
 
-/** The subset of `env.ts` this config actually needs — kept narrow so a
+/** The subset of `env.ts` this config actually needs - kept narrow so a
  * script building its own config doesn't need the app's full env shape. */
 export interface AuthConfigEnv {
   BETTER_AUTH_URL: string;

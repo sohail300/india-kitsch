@@ -2,7 +2,7 @@ import { ZodError } from "zod";
 import { requireAdmin } from "@/server/auth/session";
 import { commitProductImageUpload } from "@/server/modules/media/uploads";
 
-/** docs/07 §12 step 4 — `requireAdmin()`, then server-side verification (size, content-type, magic bytes) before the `product_images` row is created. */
+/** docs/07 §12 step 4 - `requireAdmin()`, then server-side verification (size, content-type, magic bytes) before the `product_images` row is created. */
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin(request.headers);

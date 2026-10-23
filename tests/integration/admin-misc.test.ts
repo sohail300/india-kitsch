@@ -3,7 +3,7 @@
  * Supabase (docs/09 §20). Covers the smaller Phase 7 admin domains:
  * inventory adjustments, coupon CRUD, customer management, settings.
  */
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -13,8 +13,17 @@ import { adjustStock } from "@/server/modules/inventory/admin";
 import { createCoupon, setCouponActive, updateCoupon } from "@/server/modules/coupons/admin";
 import { getCustomerDetail, listCustomers } from "@/server/modules/customers/queries";
 import { setCustomerDisabled } from "@/server/modules/customers/service";
-import { updateShippingSettings, updateStoreInfo } from "@/server/modules/settings/admin";
-import { getShippingSettings, getStoreInfo } from "@/server/modules/settings/queries";
+import {
+  updateCatalogSettings,
+  updateShippingSettings,
+  updateStoreInfo,
+} from "@/server/modules/settings/admin";
+import {
+  getCatalogSettings,
+  getSettingsLastUpdated,
+  getShippingSettings,
+  getStoreInfo,
+} from "@/server/modules/settings/queries";
 import { migrateTestDb } from "../setup/migrate-test-db";
 
 function requireTestDatabaseUrl(): string {
@@ -31,6 +40,7 @@ const client = postgres(requireTestDatabaseUrl(), { max: 10 });
 const db = drizzle(client, { schema });
 
 const createdUserIds: string[] = [];
+const createdOrderIds: string[] = [];
 const createdCategoryIds: string[] = [];
 const createdCouponIds: string[] = [];
 
@@ -64,7 +74,10 @@ afterAll(async () => {
   }
   await db
     .delete(schema.storeSettings)
-    .where(inArray(schema.storeSettings.key, ["shipping", "storeInfo"]));
+    .where(inArray(schema.storeSettings.key, ["shipping", "storeInfo", "catalog"]));
+  if (createdOrderIds.length > 0) {
+    await db.delete(schema.orders).where(inArray(schema.orders.id, createdOrderIds));
+  }
   if (createdUserIds.length > 0) {
     await db.delete(schema.auditLog).where(inArray(schema.auditLog.adminUserId, createdUserIds));
     await db.delete(schema.user).where(inArray(schema.user.id, createdUserIds));
@@ -140,11 +153,40 @@ describe("adjustStock", () => {
     ).rejects.toThrow();
   });
 
-  it("rejects an empty note", async () => {
+  it("only accepts manual reasons, and restock/return only as increases", async () => {
     const variantId = await createTestVariant(5);
+    // A system-only ledger reason can't be recorded by hand.
     await expect(
-      adjustStock({ variantId, delta: 1, reason: "adjustment", note: "" }, adminUserId, db),
-    ).rejects.toThrow();
+      adjustStock({ variantId, delta: 1, reason: "sale" as never, note: "x" }, adminUserId, db),
+    ).rejects.toThrow(/unsupported reason/);
+    await expect(
+      adjustStock({ variantId, delta: -1, reason: "restock", note: "x" }, adminUserId, db),
+    ).rejects.toThrow(/only increase/);
+
+    // A customer return logged by hand is an increase with the `return` reason.
+    const { result } = await adjustStock(
+      { variantId, delta: 1, reason: "return", note: "Returned by a customer" },
+      adminUserId,
+      db,
+    );
+    expect(result.onHand).toBe(6);
+  });
+
+  it("accepts an adjustment without a note, still logging its reason", async () => {
+    const variantId = await createTestVariant(5);
+    const { result } = await adjustStock(
+      { variantId, delta: 2, reason: "restock", note: "  " },
+      adminUserId,
+      db,
+    );
+    expect(result.onHand).toBe(7);
+    const [movement] = await db
+      .select()
+      .from(schema.stockMovements)
+      .where(eq(schema.stockMovements.variantId, variantId))
+      .orderBy(desc(schema.stockMovements.createdAt))
+      .limit(1);
+    expect(movement).toMatchObject({ delta: 2, reason: "restock", note: null });
   });
 });
 
@@ -164,6 +206,7 @@ describe("coupons/admin", () => {
       valueBps: 1500,
       valuePaise: null,
       isActive: true,
+      createdByAdminId: adminUserId,
     });
   });
 
@@ -223,29 +266,103 @@ describe("coupons/admin", () => {
 });
 
 describe("customers", () => {
-  async function createTestCustomer(): Promise<string> {
+  async function createTestCustomer(overrides: { name?: string; disabled?: boolean } = {}) {
     const id = createId();
     createdUserIds.push(id);
     await db.insert(schema.user).values({
       id,
-      name: "Jane Customer",
+      name: overrides.name ?? "Jane Customer",
       email: `customer-${id}@indiakitsch.test`,
       role: "customer",
+      disabled: overrides.disabled ?? false,
     });
     return id;
   }
+
+  async function createTestOrder(
+    userId: string,
+    opts: { totalPaise: number; paid: boolean; refundedPaise?: number; createdAt: Date },
+  ) {
+    const id = createId();
+    createdOrderIds.push(id);
+    await db.insert(schema.orders).values({
+      id,
+      userId,
+      status: opts.paid ? "paid" : "pending_payment",
+      subtotalPaise: opts.totalPaise,
+      totalPaise: opts.totalPaise,
+      refundedPaise: opts.refundedPaise ?? 0,
+      paidAt: opts.paid ? opts.createdAt : null,
+      createdAt: opts.createdAt,
+      shipFullName: "Jane",
+      shipPhone: "9999999999",
+      shipLine1: "1 Test St",
+      shipCity: "Mumbai",
+      shipState: "MH",
+      shipPincode: "400001",
+      customerEmail: `order-${id}@indiakitsch.test`,
+      customerPhone: "9999999999",
+    });
+  }
+
+  it("aggregates paid-order stats, filters by status and sorts in SQL", async () => {
+    // A unique name fragment scopes the search to just this test's customers.
+    const tag = `Stats${createId()}`;
+    const big = await createTestCustomer({ name: `${tag} Big` });
+    const small = await createTestCustomer({ name: `${tag} Small` });
+    const none = await createTestCustomer({ name: `${tag} None`, disabled: true });
+
+    const older = new Date("2026-01-10T10:00:00Z");
+    const newer = new Date("2026-03-05T10:00:00Z");
+    await createTestOrder(big, { totalPaise: 100_000, paid: true, createdAt: older });
+    await createTestOrder(big, {
+      totalPaise: 50_000,
+      paid: true,
+      refundedPaise: 20_000,
+      createdAt: newer,
+    });
+    // Unpaid checkouts are ignored entirely — count, spend and last order.
+    await createTestOrder(big, { totalPaise: 999_999, paid: false, createdAt: new Date() });
+    await createTestOrder(small, { totalPaise: 30_000, paid: true, createdAt: older });
+    await createTestOrder(none, { totalPaise: 40_000, paid: false, createdAt: newer });
+
+    const bySpend = await listCustomers({ q: tag, sort: "spent", dir: "desc" }, db);
+    expect(bySpend.items.map((i) => i.customer.id)).toEqual([big, small, none]);
+    expect(bySpend.items[0]).toMatchObject({
+      orderCount: 2,
+      totalSpentPaise: 130_000,
+      lastOrderAt: newer,
+    });
+    expect(bySpend.items[2]).toMatchObject({
+      orderCount: 0,
+      totalSpentPaise: 0,
+      lastOrderAt: null,
+    });
+
+    // No last order sorts last in both directions.
+    const lastAsc = await listCustomers({ q: tag, sort: "last_order", dir: "asc" }, db);
+    expect(lastAsc.items.map((i) => i.customer.id)).toEqual([small, big, none]);
+    const lastDesc = await listCustomers({ q: tag, sort: "last_order", dir: "desc" }, db);
+    expect(lastDesc.items.map((i) => i.customer.id)).toEqual([big, small, none]);
+
+    const disabled = await listCustomers({ q: tag, status: "disabled" }, db);
+    expect(disabled.items.map((i) => i.customer.id)).toEqual([none]);
+    expect(disabled.total).toBe(1);
+    const active = await listCustomers({ q: tag, status: "active", sort: "name", dir: "asc" }, db);
+    expect(active.items.map((i) => i.customer.id)).toEqual([big, small]);
+  });
 
   it("lists customers and finds by search", async () => {
     const customerId = await createTestCustomer();
     const [customer] = await db.select().from(schema.user).where(eq(schema.user.id, customerId));
 
     const result = await listCustomers({ q: customer!.email, page: 1 }, db);
-    expect(result.items.map((c) => c.id)).toContain(customerId);
+    expect(result.items.map((c) => c.customer.id)).toContain(customerId);
   });
 
   it("excludes admins from the customer list", async () => {
     const result = await listCustomers({ q: "@indiakitsch.test", page: 1 }, db);
-    expect(result.items.every((c) => c.role === "customer")).toBe(true);
+    expect(result.items.every((c) => c.customer.role === "customer")).toBe(true);
   });
 
   it("returns addresses and orders in the customer detail view", async () => {
@@ -268,11 +385,29 @@ describe("customers", () => {
 
   it("disables and re-enables a customer, auditing both", async () => {
     const customerId = await createTestCustomer();
+    // Disabling signs the customer out everywhere.
+    await db.insert(schema.session).values({
+      id: createId(),
+      token: createId(),
+      userId: customerId,
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
     const { result: disabled } = await setCustomerDisabled(customerId, true, adminUserId, db);
     expect(disabled.disabled).toBe(true);
+    const sessionsLeft = await db
+      .select()
+      .from(schema.session)
+      .where(eq(schema.session.userId, customerId));
+    expect(sessionsLeft).toEqual([]);
+
+    // The detail view reads "disabled by … on …" back from the audit row.
+    const [admin] = await db.select().from(schema.user).where(eq(schema.user.id, adminUserId));
+    const whileDisabled = await getCustomerDetail(customerId, db);
+    expect(whileDisabled?.disabledBy).toEqual({ adminEmail: admin!.email, at: expect.any(Date) });
 
     const { result: enabled } = await setCustomerDisabled(customerId, false, adminUserId, db);
     expect(enabled.disabled).toBe(false);
+    expect((await getCustomerDetail(customerId, db))?.disabledBy).toBeNull();
 
     const audits = await db.query.auditLog.findMany({
       where: eq(schema.auditLog.entityId, customerId),
@@ -282,6 +417,69 @@ describe("customers", () => {
 });
 
 describe("settings/admin", () => {
+  it("rejects badly formatted store details, and normalizes valid ones", async () => {
+    const base = { sellerState: "Maharashtra", contactEmail: "owner@indiakitsch.test" };
+    for (const bad of [
+      { gstin: "27ABCDE1234F1Z" }, // 14 characters
+      { contactPhone: "12345" },
+      { addressPincode: "40001" },
+      { instagramUrl: "https://example.com/indiakitsch" },
+      { facebookUrl: "http://facebook.com/indiakitsch" }, // not https
+    ]) {
+      await expect(updateStoreInfo({ ...base, ...bad }, adminUserId, db)).rejects.toThrow();
+    }
+
+    await updateStoreInfo(
+      {
+        ...base,
+        gstin: "27abcde1234f1z5",
+        contactPhone: "+91 98765-43210",
+        addressPincode: "400001",
+        instagramUrl: "https://www.instagram.com/indiakitsch",
+      },
+      adminUserId,
+      db,
+    );
+    expect(await getStoreInfo(db)).toMatchObject({
+      gstin: "27ABCDE1234F1Z5",
+      contactPhone: "+919876543210",
+      addressPincode: "400001",
+    });
+  });
+
+  it("still reads store info saved before the stricter rules existed", async () => {
+    // A legacy value the new write rules would reject must not fall back to the placeholder.
+    await db
+      .insert(schema.storeSettings)
+      .values({
+        key: "storeInfo",
+        value: { sellerState: "Goa", contactEmail: "old@indiakitsch.test", addressPincode: "12" },
+      })
+      .onConflictDoUpdate({
+        target: schema.storeSettings.key,
+        set: {
+          value: { sellerState: "Goa", contactEmail: "old@indiakitsch.test", addressPincode: "12" },
+        },
+      });
+    expect(await getStoreInfo(db)).toMatchObject({ sellerState: "Goa", addressPincode: "12" });
+  });
+
+  it("saves products & stock settings, and reports who last saved each setting", async () => {
+    await db.delete(schema.storeSettings).where(eq(schema.storeSettings.key, "catalog"));
+    expect(await getCatalogSettings(db)).toEqual({ defaultGstRateBps: 1800, lowStockThreshold: 5 });
+
+    await updateCatalogSettings({ defaultGstRateBps: 500, lowStockThreshold: 3 }, adminUserId, db);
+    expect(await getCatalogSettings(db)).toEqual({ defaultGstRateBps: 500, lowStockThreshold: 3 });
+    await expect(
+      updateCatalogSettings({ defaultGstRateBps: 5000, lowStockThreshold: 3 }, adminUserId, db),
+    ).rejects.toThrow();
+
+    const [admin] = await db.select().from(schema.user).where(eq(schema.user.id, adminUserId));
+    const lastUpdated = await getSettingsLastUpdated(["catalog", "never-saved-key"], db);
+    expect(lastUpdated.catalog).toEqual({ adminEmail: admin!.email, at: expect.any(Date) });
+    expect(lastUpdated["never-saved-key"]).toBeUndefined();
+  });
+
   it("writes and reads back real shipping settings, overriding the placeholder", async () => {
     await updateShippingSettings({ feePaise: 4900, freeThresholdPaise: 199900 }, adminUserId, db);
     const result = await getShippingSettings(db);

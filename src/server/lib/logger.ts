@@ -15,7 +15,7 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 type LogContext = Record<string, unknown>;
 
 // Matched case-insensitively, with `_`/`-` stripped, against every key in a
-// logged context — belt-and-braces against ever leaking a secret by accident.
+// logged context - belt-and-braces against ever leaking a secret by accident.
 const SENSITIVE_KEY_PATTERN =
   /password|secret|token|authorization|cookie|cardnumber|cvv|otp|clientsecret|apikey|accesskeyid|secretaccesskey/i;
 
