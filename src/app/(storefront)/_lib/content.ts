@@ -229,5 +229,10 @@ export function getProducts(handles: string[]): Product[] {
   return handles.map((h) => products[h]).filter((p): p is Product => Boolean(p));
 }
 
+// Bag lines store only variant ids; this resolves them for display.
+export function getProductByVariant(variantId: string): Product | undefined {
+  return Object.values(products).find((p) => p.variantId === variantId);
+}
+
 // Plain URL for places that can't take StaticImageData (e.g. <source srcSet>).
 export const srcOf = (src: StaticImageData | string) => (typeof src === "string" ? src : src.src);

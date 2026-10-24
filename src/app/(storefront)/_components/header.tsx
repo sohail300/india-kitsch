@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { openCart, useCartLines } from "@/app/(storefront)/_lib/cart";
 import type { Shell } from "@/app/(storefront)/_lib/content";
 import { routePath } from "@/app/(storefront)/_lib/routes";
 import { useWishlist } from "@/app/(storefront)/_lib/wishlist";
@@ -44,11 +45,40 @@ export default function Header({ header }: Props) {
     setDrawerOpen(false);
   }
 
+  // Homepage header sits in the page flow until it scrolls under the ticker,
+  // then pins as a floating pill; inner pages are pinned from the start.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [scrolledPast, setScrolledPast] = useState(false);
+  useEffect(() => {
+    if (!isHome) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const sentinel = sentinelRef.current;
+      if (sentinel) setScrolledPast(window.scrollY >= sentinel.offsetTop);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    frame = requestAnimationFrame(update);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [isHome]);
+  const pinned = !isHome || scrolledPast;
+  const variant = isHome ? "flush" : "floating";
+
+  const cartLines = useCartLines();
+  const bagCount = cartLines.reduce((n, l) => n + l.qty, 0);
+
   const isActive = (href: string | null) => Boolean(href) && routePath(href!) === pathname;
 
   return (
     <>
-      <div className={styles.wrap} data-variant={isHome ? "flush" : "floating"}>
+      <div ref={sentinelRef} aria-hidden="true" />
+      <div className={styles.wrap} data-variant={variant} data-pinned={pinned || undefined}>
         <header className={styles.header}>
           <div className={styles.inner}>
             <Link href="/" className={styles.logo} aria-label="India Kitsch home">
@@ -141,9 +171,15 @@ export default function Header({ header }: Props) {
                 <HeartIcon />
                 {items.length > 0 && <span className={styles.count}>{items.length}</span>}
               </SiteLink>
-              <SiteLink href={header.actions.cart} className={styles.action} aria-label="Cart">
+              <button
+                type="button"
+                className={styles.action}
+                aria-label={bagCount ? `Bag, ${bagCount} items` : "Bag"}
+                onClick={openCart}
+              >
                 <BagIcon />
-              </SiteLink>
+                {bagCount > 0 && <span className={styles.count}>{bagCount}</span>}
+              </button>
               <SiteLink
                 href={header.actions.tracking}
                 className={`${styles.action} ${styles.desktopOnly}`}
@@ -171,6 +207,12 @@ export default function Header({ header }: Props) {
           </div>
         </header>
       </div>
+      <div
+        className={styles.pinSpacer}
+        data-variant={variant}
+        data-pinned={pinned || undefined}
+        aria-hidden="true"
+      />
       <div
         className={styles.mobileSpacer}
         data-variant={isHome ? "flush" : "floating"}

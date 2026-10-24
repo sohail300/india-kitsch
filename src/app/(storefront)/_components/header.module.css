@@ -1,13 +1,22 @@
 .wrap {
-  position: sticky;
-  top: var(--sf-ticker-height);
+  position: relative;
   z-index: 900;
+}
+
+/* Desktop: once pinned (always on inner pages, after scrolling on the
+   homepage) the header becomes a fixed floating pill under the ticker. */
+.wrap[data-pinned] {
+  position: fixed;
+  top: calc(var(--sf-ticker-height) + 12px);
+  left: 8px;
+  right: 8px;
 }
 
 .header {
   position: relative;
   color: var(--sf-ink);
   background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(168, 121, 56, 0.18);
   backdrop-filter: blur(22px) saturate(1.45);
   -webkit-backdrop-filter: blur(22px) saturate(1.45);
   box-shadow:
@@ -15,10 +24,15 @@
     rgba(255, 255, 255, 0.76) 0 1px 0 inset;
 }
 
-.wrap[data-variant="floating"] .header {
+.wrap[data-variant="floating"] .header,
+.wrap[data-pinned] .header {
   margin: 12px 8px 0;
   border: 1px solid rgba(168, 121, 56, 0.18);
   border-radius: 18px;
+}
+
+.wrap[data-pinned] .header {
+  margin: 0;
 }
 
 .inner {
@@ -40,8 +54,26 @@
     radial-gradient(circle at 96% 72%, rgba(224, 194, 134, 0.7) 0 1px, transparent 1.55px);
 }
 
-.wrap[data-variant="floating"] .inner {
+.wrap[data-variant="floating"] .inner,
+.wrap[data-pinned] .inner {
   padding: 8px;
+}
+
+/* Holds the header's place in the page while it's fixed (flush header is 70px
+   tall; the floating one adds its 12px top margin). */
+.pinSpacer {
+  display: none;
+}
+
+@media (min-width: 990px) {
+  .pinSpacer[data-pinned] {
+    display: block;
+    height: 70px;
+  }
+
+  .pinSpacer[data-pinned][data-variant="floating"] {
+    height: 82px;
+  }
 }
 
 /* Logo: English wordmark and Devanagari name cross-fade. */
@@ -307,7 +339,8 @@
 
 /* Mobile: floating pill fixed under the announcement bar. */
 @media (max-width: 989px) {
-  .wrap {
+  .wrap,
+  .wrap[data-pinned] {
     position: fixed;
     top: calc(var(--sf-ticker-height) + 8px);
     left: 10px;
@@ -315,14 +348,16 @@
   }
 
   .wrap .header,
-  .wrap[data-variant="floating"] .header {
+  .wrap[data-variant="floating"] .header,
+  .wrap[data-pinned] .header {
     margin: 0;
     border: 1px solid rgba(168, 121, 56, 0.18);
     border-radius: 15px;
   }
 
   .inner,
-  .wrap[data-variant="floating"] .inner {
+  .wrap[data-variant="floating"] .inner,
+  .wrap[data-pinned] .inner {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 6px;
     min-height: 50px;

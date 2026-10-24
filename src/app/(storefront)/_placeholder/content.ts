@@ -126,7 +126,7 @@ export const shell: Shell = {
       search: "/search",
       wishlist: "/wishlist",
       cart: "/cart",
-      tracking: "#",
+      tracking: "https://www.ithinklogistics.co.in/",
       account: "/account",
     },
     drawer: {
@@ -143,7 +143,7 @@ export const shell: Shell = {
         {
           title: "Track Order",
           subtitle: "Check delivery status",
-          href: "https://www.ithinklogistics.co.in/postship/tracking/11111111",
+          href: "https://www.ithinklogistics.co.in/",
         },
       ],
       submenus: [
@@ -274,14 +274,6 @@ export const shell: Shell = {
           {
             label: "Contact Us",
             href: "/contact",
-          },
-          {
-            label: "Sitemap",
-            href: "/pages/sitemap",
-          },
-          {
-            label: "Write for Us",
-            href: "/pages/write-for-us-fashion",
           },
         ],
       },

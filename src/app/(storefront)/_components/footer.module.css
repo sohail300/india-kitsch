@@ -323,6 +323,16 @@
   font-size: 13px;
   line-height: 1.45;
   color: var(--sf-cream);
+  /* Long emails can't push past the column edge. */
+  overflow-wrap: anywhere;
+}
+
+/* Like Sansevieria: below 1200px the link columns go 3-up and the last one
+   wraps to a second row, instead of squeezing four narrow columns. */
+@media (max-width: 1199px) {
+  .columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .contactLabel {
@@ -412,11 +422,19 @@
   background: #fff;
 }
 
-.paymentCard img,
 .paymentSvg,
 .paymentSvg svg {
   display: block;
   width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Logo images scale by height and keep their own aspect ratio. */
+.paymentCard img {
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: 100%;
   object-fit: contain;
 }

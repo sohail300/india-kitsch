@@ -64,7 +64,7 @@ export default function Footer({ footer }: Props) {
                 <div className={styles.followLinks}>
                   {footer.follow.links.map((link) => (
                     <SiteLink
-                      key={link.href}
+                      key={link.network}
                       href={link.href}
                       className={styles.followLink}
                       aria-label={link.lines.join(" ")}
@@ -106,7 +106,11 @@ export default function Footer({ footer }: Props) {
                   {col.type === "contact" && (
                     <div className={styles.contactList}>
                       {col.links.map((link) => (
-                        <SiteLink key={link.href} href={link.href} className={styles.contactItem}>
+                        <SiteLink
+                          key={link.parts[0]}
+                          href={link.href}
+                          className={styles.contactItem}
+                        >
                           <span className={styles.contactLabel}>{link.parts[0]}</span>
                           <span>{link.parts.slice(1).join(" ")}</span>
                         </SiteLink>
@@ -149,11 +153,14 @@ export default function Footer({ footer }: Props) {
                 {footer.payments.cards.map((card) => (
                   <li key={card.name} className={styles.paymentCard} aria-label={card.name}>
                     {card.image ? (
+                      // Bundled images carry their own intrinsic size; only pass
+                      // explicit dimensions when the data has them.
                       <Image
                         src={card.image.src}
                         alt={card.image.alt || card.name}
-                        width={card.image.width ?? 60}
-                        height={card.image.height ?? 20}
+                        {...(card.image.width && card.image.height
+                          ? { width: card.image.width, height: card.image.height }
+                          : {})}
                       />
                     ) : card.svg ? (
                       <span

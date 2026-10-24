@@ -87,3 +87,12 @@ Phases 1–14 as written in `docs/10-roadmap.md`: **all backend first** (schema 
 ## Verification
 
 Phase 0 is done only when every exit criterion in `docs/10-roadmap.md` ("Verification" section) for Phase 0 passes with evidence (test output, screenshots), not assumptions.
+
+## Storefront UI — pending
+
+The static storefront (`src/app/(storefront)/`, Sansevieria theme with placeholder content) is in place; these are deliberately not done yet:
+
+- **Profile/account icon:** should open the login page when signed out and the customer's profile page when signed in. Currently inactive (header icon and the mobile menu's "My Account" row) — needs customer auth pages first (Phase 10).
+- **Checkout:** the bag drawer's Checkout button is inactive until `/checkout` exists; the bag itself stores only `{variantId, qty}` in `localStorage` (`ikCart:v1`), per docs/05 §8, and should switch to `quoteCart` for prices once wired to the backend.
+- **Placeholder content to replace:** India Kitsch logo (text wordmark for now), the Diwali hero photo (has Sansevieria's Hindi name baked in), the Hindi wordmark spelling, footer contact details, About/FAQ/policy copy, and all Sansevieria product/blog photos.
+- **Reel videos:** posters only; the three MP4s need a home (R2 or `public/`, owner's call).

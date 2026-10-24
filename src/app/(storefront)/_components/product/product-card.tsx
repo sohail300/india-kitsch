@@ -1,7 +1,7 @@
 import type { Product } from "@/app/(storefront)/_lib/content";
 import SiteLink from "../site-link";
-import { BagIcon } from "../icons";
 import ProductGallery from "./product-gallery";
+import QuickAddButton from "./quick-add-button";
 import WishlistButton from "./wishlist-button";
 import styles from "./product-card.module.css";
 
@@ -46,14 +46,7 @@ export default function ProductCard({
           </SiteLink>
           {variant === "grid" && (
             <span className={styles.quickAdd}>
-              <button
-                type="button"
-                className={styles.quickAddButton}
-                aria-label="Add to cart"
-                aria-disabled="true"
-              >
-                <BagIcon size={18} />
-              </button>
+              <QuickAddButton variantId={product.variantId} title={product.fullTitle ?? title} />
             </span>
           )}
         </div>

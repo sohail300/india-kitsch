@@ -8,7 +8,6 @@ type Params = { params: Promise<{ handle: string }> };
 
 const isPolicy = (handle: string): handle is PolicyHandle => handle in policies;
 
-
 export function generateStaticParams() {
   return Object.keys(policies).map((handle) => ({ handle }));
 }
