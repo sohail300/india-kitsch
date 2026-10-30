@@ -10,7 +10,7 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 
 ~~`docs/06-checkout-payments-orders.md` currently only re-reserves stock / refunds a **late payment**... inside the **10-minute reconciler**...~~ Resolved: `payments/settle.ts`'s `settleCapturedPayment` is shared by the webhook handler and the reconciler, so a late payer is reinstated or refunded the moment the webhook arrives — the reconciler is now purely the backstop for a lost webhook, not the primary path. See docs/06's "Implementation notes (Phase 6)" section and `tests/integration/payments.test.ts`'s "reinstates/auto-refunds a late payment directly" cases.
 
-## GitHub Actions secrets — done
+## GitHub Actions secrets — done except `B2_*`
 
 `.github/workflows/backup.yml` and `prune-backups.yml` (docs/08 §16) needed these added to the repo's **Settings → Secrets and variables → Actions** before they could run at all. **Resolved:** all secrets/variables below are added. The dedicated `ik-backups` R2 bucket has also been created — `scripts/backup-db.ts` still needs updating to actually use its own scoped credentials instead of the shared `R2_BUCKET` (images bucket), see the file's own TODO comment and docs/08 §16.
 
@@ -87,6 +87,25 @@ Phases 1–14 as written in `docs/10-roadmap.md`: **all backend first** (schema 
 ## Verification
 
 Phase 0 is done only when every exit criterion in `docs/10-roadmap.md` ("Verification" section) for Phase 0 passes with evidence (test output, screenshots), not assumptions.
+
+## Customer handover — paused until delivery
+
+The owner paused these on 2026-10-30, to be turned on when the site is delivered to the customer. They are deliberate, not broken: don't re-enable them early.
+
+**Backups.** Nothing is being backed up right now. The pipeline itself works: run `41076739023` dumped, encrypted and uploaded to R2 (`backups/india-kitsch-2026-10-30T15-01-31-539Z-scheduled.dump.age`). At handover:
+
+1. `gh workflow enable backup.yml` and `gh workflow enable prune-backups.yml`.
+2. Add the four `B2_*` repo secrets (values are in `.env.local`). Until then the script logs a warning and skips the off-Cloudflare copy.
+3. Set `BACKUP_FRESHNESS_CHECK` to `"on"` in `cron-worker/wrangler.jsonc` and deploy the Worker.
+4. Run the backup workflow once and confirm the file appears in both R2 and B2.
+5. Do a test restore from the encrypted dump. No restore has been tried yet.
+
+**Cron Worker.** Live version `ad8960d5` (deployed 2026-10-30) has only `SUPABASE_URL` and `SUPABASE_ANON_KEY` as secrets. Keep-alive needs nothing more, but before launch:
+
+- Set `CRON_SECRET` and a real `APP_URL`. Until then the 10-minute reconcile trigger fails on every run (visible only in Worker logs), and lost-webhook recovery doesn't work.
+- Set `RESEND_API_KEY`, `ALERT_EMAIL_FROM` and `ALERT_EMAIL_TO` (see "Cron Worker secrets needed" above). Until then a failed daily check only reaches the Worker logs.
+
+**Deploying the Worker:** always run `npx wrangler deploy` from inside `cron-worker/`. Run from the repo root, wrangler treats the project as a Next.js app and starts converting it to the OpenNext Cloudflare adapter, rewriting `package.json`, `package-lock.json`, `next.config.ts` and `.gitignore` and adding `wrangler.jsonc` and `open-next.config.ts`. This happened once on 2026-10-30 and was reverted. The site deploys to Vercel, not Cloudflare.
 
 ## Storefront UI — pending
 
