@@ -25,8 +25,14 @@ jobs:
       - name: Install PostgreSQL client (pg_dump)
         # Ubuntu 24.04's "postgresql-client" metapackage resolves to v16, but
         # pg_dump refuses to dump from a newer-major server (Supabase runs
-        # 17.x) — pin the major version to match (docs/08, Implementation notes).
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client-17
+        # 17.x). The runner image's baked-in v16 binary isn't actually backed
+        # by the PGDG apt repo despite its package version string suggesting
+        # otherwise — that repo has to be added explicitly to get v17
+        # (docs/08, Implementation notes).
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
 
       - name: Run backup
         env:
