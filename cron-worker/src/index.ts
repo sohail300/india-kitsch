@@ -17,6 +17,8 @@
  * failing. A separate weekly job (prune-backups.yml) enforces the
  * rolling retention policy - see scripts/lib/backup-retention.ts and
  * docs/08 §16 - so this Worker never needs to know about that.
+ * Skipped unless BACKUP_FRESHNESS_CHECK is "on" (wrangler.jsonc): the
+ * backup workflows are deliberately disabled until customer handover.
  *
  * Two independent triggers (wrangler.jsonc's `triggers.crons`), told apart
  * in `scheduled()` by `event.cron`:
@@ -49,6 +51,8 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   BACKUPS: R2Bucket;
+  /** "on" runs the backup freshness check; anything else skips it. */
+  BACKUP_FRESHNESS_CHECK: string;
   APP_URL: string;
   CRON_SECRET: string;
   /** Same Resend account as the Next app (`RESEND_API_KEY`), a separate
@@ -82,6 +86,11 @@ async function pingSupabaseKeepAlive(env: Env): Promise<void> {
 const MAX_BACKUP_AGE_HOURS = 14;
 
 async function checkBackupFreshness(env: Env): Promise<void> {
+  if (env.BACKUP_FRESHNESS_CHECK !== "on") {
+    console.log("Backup freshness check skipped (BACKUP_FRESHNESS_CHECK is not on)");
+    return;
+  }
+
   const listing = await env.BACKUPS.list({ prefix: "backups/" });
 
   if (listing.objects.length === 0) {

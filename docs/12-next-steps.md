@@ -23,7 +23,7 @@ The architecture and implementation plan is finished across `docs/01`–`docs/11
 | `R2_ACCESS_KEY_ID`     | Same as `.env.local`                                                                                          |
 | `R2_SECRET_ACCESS_KEY` | Same as `.env.local`                                                                                          |
 | `R2_BUCKET`            | Same as `.env.local`                                                                                          |
-| `B2_ENDPOINT`          | From the Backblaze B2 bucket — created and verified                                                           |
+| `B2_ENDPOINT`          | From the Backblaze B2 bucket — created and verified. **All four `B2_*` still to add, at customer handover**   |
 | `B2_BUCKET`            | From that same B2 bucket                                                                                      |
 | `B2_ACCESS_KEY_ID`     | From a B2 application key                                                                                     |
 | `B2_SECRET_ACCESS_KEY` | From that same application key                                                                                |

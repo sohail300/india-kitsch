@@ -23,6 +23,8 @@
   // actually reach anything. Override locally via .dev.vars if it differs.
   "vars": {
     "APP_URL": "https://REPLACE_WITH_REAL_DOMAIN.example",
+    // Set to "on" at customer handover, when backup.yml is re-enabled (docs/08 §16).
+    "BACKUP_FRESHNESS_CHECK": "off",
   },
 
   // SUPABASE_URL / SUPABASE_ANON_KEY / CRON_SECRET are set via `wrangler
